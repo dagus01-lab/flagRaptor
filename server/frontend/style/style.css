@@ -1,0 +1,122 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+textarea {
+    resize: none;
+}
+
+a{
+    text-decoration: none;
+    color: #fff;
+}
+
+.menu-bar {
+    background-color: #333;
+    color: #fff;
+    display: flex;
+    justify-content: right;
+    align-items: right;
+    height: 50px;
+}
+
+.menu {
+    display: flex;
+}
+
+.menu-item {
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.menu-item:hover {
+    background-color: #555;
+}
+/* Style for the modal_page container */
+.modal_page {
+    display: flex;
+    flex-direction: column; /* Arrange items vertically */
+    align-items: center; /* Center items horizontally */
+    justify-content: center; /* Center items vertically */
+    width: 100%;
+    height: 100vh; /* Adjust to your needs */
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  
+  /* Style for the content inside the modal_page */
+  .modal_content {
+    display:flex;
+    padding: 20px;
+    flex-direction: column; /* Arrange items vertically */
+    background-color: white;
+  }
+  .date-time-picker-container {
+    position: relative;
+  }
+  
+  .react-datepicker {
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+  }
+  
+  .react-datepicker__time-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+  }
+  
+  .react-datepicker__time-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .react-datepicker__time-box > div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+  }
+  
+  .react-datepicker__time {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  
+  .react-datepicker__time-box span {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  
+  .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .time-picker-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .clock-wrapper {
+    position: relative;
+    width: fit-content; /* Adjust the width as needed */
+    height: fit-content; /* Adjust the height as needed */
+    margin: 0 auto;
+    cursor: pointer;
+  }
