@@ -25,10 +25,6 @@ export const options = {
     legend: {
       position: 'top',
     },
-    title: {
-      display: true,
-      text: 'Your flags',
-    },
   },
 };
 
@@ -43,7 +39,7 @@ const BarChartComponent = ({label,data}) => {
   return (
     <div>
       <h4>{label}</h4>
-      <Bar options={options} data={data}/>
+      <Bar options={options} data={chartData}/>
     </div>
   );
 };

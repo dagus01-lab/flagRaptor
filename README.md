@@ -1,4 +1,4 @@
-# flagWarehouse
+# flagSubmitter
 Flag submission system for Attack/Defense CTFs.
 
 * [Server](#server)
@@ -42,6 +42,7 @@ Edit the parameters in [utils.go](server/backend/utils.go)
 - `SUB_INTERVAL`: interval in seconds for the submission; if the submission round takes more than the number of seconds
                   specified, the background submission loop will not sleep
 - `SUB_URL`: the url used for the verification of the flags
+- `CLIENT_PORT`: the port of the clients, through which the server can order them to stop/restart some exploits
 
 ### Usage
 The backend needs to be compiled before execution
@@ -62,9 +63,11 @@ go build
 ./client -s SERVER_URL -u USERNAME -t TOKEN -d ./exploits_dir/ -n THREADS
 ```
 The client is a go program that runs all the programs in the directory specified by the user.
-Firstly the clien fetches the configuration from the server. Then it reads the standard output of every
+Firstly the client fetches the configuration from the server. Then it reads the standard output of every
 script, extracts the flags using the regex provided in the server configurations, and sends them to the 
 server. 
+Moreover the client listens on a specific port, in order to allow the server to stop/restart some of the
+exploits that are in the specified directory
 
 ### REMEMBER
 

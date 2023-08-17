@@ -25,7 +25,7 @@ func updateClient(wg *sync.WaitGroup, client *websocket.Conn, msg []common.Flag)
 	}
 
 	//set a maximum number of flags to send within the same packet
-	maximum_upload_flags := 50
+	maximum_upload_flags := 1000
 	for i := 0; i*maximum_upload_flags < len(msg); i++ {
 		lower_bound := i * maximum_upload_flags
 		upper_bound := (i + 1) * maximum_upload_flags
@@ -35,11 +35,13 @@ func updateClient(wg *sync.WaitGroup, client *websocket.Conn, msg []common.Flag)
 		err := client.WriteJSON(msg[lower_bound:upper_bound])
 		if err != nil {
 			fmt.Println("Error sending message:", err)
+			fmt.Println("Closing connection with the websocket client", client.RemoteAddr().String(), "...")
 			client.Close()
 
+			webSocketClientsLock.Lock()
 			if len(clients) == 1 {
 				clients = make([]WebSocketClient, 0)
-			} else {
+			} else if len(clients) > 0 {
 				var indexToRemove int
 				for i, c := range clients {
 					if c.connection == client {
@@ -53,6 +55,8 @@ func updateClient(wg *sync.WaitGroup, client *websocket.Conn, msg []common.Flag)
 					clients = clients[:indexToRemove]
 				}
 			}
+			webSocketClientsLock.Unlock()
+			break
 		}
 	}
 }

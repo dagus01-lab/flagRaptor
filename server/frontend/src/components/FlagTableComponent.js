@@ -32,14 +32,6 @@ const FlagTableComponent = ({ data }) => {
     setIsModalOpen(false);
   };
 
-  const handleDateSelect = () => {
-
-  }
-
-  const handleDatepickerClose = () => {
-    
-  }
-
   const handleFilter = () => {
     //check if fromDateTime<toDateTime
     if(fromDateTime > toDateTime){

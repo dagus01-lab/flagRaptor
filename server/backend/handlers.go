@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"myflagsubmitter/common"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -68,6 +69,7 @@ func getConfigHandler(w http.ResponseWriter, r *http.Request) {
 			Teams:         TEAMS,
 			NopTeam:       NOP_TEAM,
 			FlagidUrl:     FLAGID_URL,
+			ClientPort:    CLIENT_PORT,
 		}
 
 		jsonData, err := json.Marshal(config)
@@ -95,7 +97,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Error converting from json: ", err)
 			return
 		}
-		// current_app.logger.debug(f"{len(data.get('flags'))} flags received from user {username}")
+
 		var rows []common.Flag
 		for _, item := range data.Flags {
 			flag := common.Flag{
@@ -107,21 +109,97 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 				Status:         DB_NSUB,
 				ServerResponse: DB_NSUB,
 			}
+
 			rows = append(rows, flag)
 		}
 
-		attempts := 20
+		var exploits *map[string]bool
+		//update the scriptRunners status
+		scriptRunnersLock.Lock()
+		userFound := false
+		remoteAddr := strings.Split(r.RemoteAddr, ":")
+		clientAddress := strings.Join(remoteAddr[:len(remoteAddr)-1], ":") + ":" + strconv.Itoa(CLIENT_PORT)
+		for _, scriptRunner := range scriptRunners {
+			if scriptRunner.user == rows[0].Username {
+				addressFound := false
+				for _, address := range scriptRunner.addresses {
+					if address == clientAddress {
+						addressFound = true
+						break
+					}
+				}
+				if !addressFound {
+					scriptRunner.addresses = append(scriptRunner.addresses, clientAddress)
+					//for every new client process trying to update some flags the server orders it to stop the script that have been stopped from the web interface
+					for exploit, isRunning := range *exploits {
+						if !isRunning {
+							data := []byte(`name=` + exploit)
+							resp, err := http.Post("http://"+clientAddress+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
+							if err != nil {
+								fmt.Println("Error on stopping script", exploit, ", error:", err)
+								return
+							}
+							defer resp.Body.Close()
+						}
+					}
+				}
+				userFound = true
+				exploits = &scriptRunner.exploits
+				break
+			}
+		}
+		if !userFound {
+			scriptRunners = append(scriptRunners, ScriptRunner{user: rows[0].Username, addresses: append(make([]string, 0), clientAddress), exploits: make(map[string]bool, 0)})
+			exploits = &scriptRunners[len(scriptRunners)-1].exploits
+
+			//for every new client process trying to update some flags the server orders it to stop the script that have been stopped from the web interface
+			for exploit, isRunning := range *exploits {
+				if !isRunning {
+					data := []byte(`name=` + exploit)
+					resp, err := http.Post("http://"+clientAddress+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
+					if err != nil {
+						fmt.Println("Error on stopping script", exploit, ", error:", err)
+						return
+					}
+					defer resp.Body.Close()
+				}
+			}
+		}
+		scriptRunnersLock.Unlock()
+
+		//flag upload
+		attempts := 5
 		// Try multiple times before failing
 		for i := 0; i < attempts; i++ {
 			query := "INSERT OR IGNORE INTO flags (flag, username, exploit_name, team_ip, time, status, server_response) VALUES "
 			for i, row := range rows {
+
+				//update the exploits status inside the scriptRunners status, so that new scripts are added as executing scripts
+				isRunning, found := (*exploits)[row.ExploitName]
+				if !found {
+					(*exploits)[row.ExploitName] = true
+				} else if !isRunning {
+					//if a client tries to upload a flag with a script that has been blocked, the upload is blocked and the client is ordered to stop the script execution
+					data := []byte(`name=` + row.ExploitName)
+					resp, err := http.Post("http://"+clientAddress+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
+					if err != nil {
+						fmt.Println("Error on stopping script", row.ExploitName, ", error:", err)
+						return
+					}
+					defer resp.Body.Close()
+					continue
+				}
+
 				query += " (" + "\"" + row.Flag + "\",\"" + row.Username + "\",\"" + row.ExploitName + "\",\"" + row.TeamIp + "\",\"" + row.Time + "\",\"" + DB_NSUB + "\", \"" + DB_NSUB + "\") "
 				if i != len(rows)-1 {
 					query += ","
 				}
+
 			}
 			//fmt.Println("Performing query \"" + query + "\" to update flags into database")
+			dbLock.Lock()
 			_, err := db.Exec(query)
+			dbLock.Unlock()
 			if err != nil {
 				if i == attempts-1 {
 					fmt.Println("Error in uploading flags on the database: ", err)
@@ -131,8 +209,8 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				break
 			}
-
 		}
+
 		//write the updates on the broadcast channel of the clients connected to the webapp
 		go updateNewFlags(rows)
 		//fmt.Println("Flags", rows, "correclty inserted into database")
@@ -151,7 +229,9 @@ func getFlagsHandler(w http.ResponseWriter, r *http.Request) {
 		var result []common.Flag
 		query := "SELECT flag, username, exploit_name, team_ip, time, status, COALESCE(server_response, 'NOT_SUBMITTED') as server_response FROM flags where username = ?"
 
+		dbLock.Lock()
 		rows, err := db.Query(query, user)
+		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error while getting flags from the database: ", err)
 			return
@@ -171,7 +251,6 @@ func getFlagsHandler(w http.ResponseWriter, r *http.Request) {
 		jsonData, err := json.Marshal(result)
 		if err != nil {
 			fmt.Println("Error converting to json: ", err)
-			//come mi comporto se non riesco a mandare il json?
 		}
 
 		//return the data in json format
@@ -203,14 +282,16 @@ func updateFlagsHandler(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Error upgrading websocket connection:", err)
+		fmt.Println("Error upgrading websocket connection:", err)
 		return
 	}
 
+	webSocketClientsLock.Lock()
 	clients = append(clients, WebSocketClient{connection: conn, username: user, lastMinutes: lastMins})
+	webSocketClientsLock.Unlock()
 	fmt.Println("Client connected", conn.RemoteAddr().String())
 
-	max_attempts := 20
+	max_attempts := 5
 	for attempts := max_attempts; attempts > 0; attempts-- {
 		flags, err := get_flags_before(lastMins)
 		if err != nil {
@@ -222,5 +303,113 @@ func updateFlagsHandler(w http.ResponseWriter, r *http.Request) {
 			updateClient(nil, conn, flags)
 			break
 		}
+	}
+}
+func restartExploitHandler(w http.ResponseWriter, r *http.Request) {
+	user, okToken, okUser := verifyAuthentication(r)
+	if okToken && okUser {
+		//retrieve the name of the exploit to restart
+		exploit := r.FormValue("exploit")
+		//retrieve the addresses associated to the user to notify
+		found := false
+		var clients []string
+		for _, scriptRunner := range scriptRunners {
+			if scriptRunner.user == user {
+				clients = scriptRunner.addresses
+				isExecuting, found_exec_status := scriptRunner.exploits[exploit]
+				if found_exec_status && !isExecuting {
+					scriptRunner.exploits[exploit] = true
+					found = true
+				} else {
+					found = false
+				}
+				break
+			}
+		}
+		if !found {
+			http.Error(w, "Nonexisting user", http.StatusBadRequest)
+			return
+		} else {
+			for _, client := range clients {
+				data := []byte(`name=` + exploit)
+				resp, err := http.Post("http://"+client+"/start", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+				defer resp.Body.Close()
+			}
+		}
+	} else {
+		http.Error(w, "You have to login first to use this feature", http.StatusUnauthorized)
+		return
+	}
+}
+func stopExploitHandler(w http.ResponseWriter, r *http.Request) {
+	user, okToken, okUser := verifyAuthentication(r)
+	if okToken && okUser {
+		//retrieve the name of the exploit to restart
+		exploit := r.FormValue("exploit")
+		//retrieve the addresses associated to the user to notify
+		found := false
+		var clients []string
+		for _, scriptRunner := range scriptRunners {
+			if scriptRunner.user == user {
+				clients = scriptRunner.addresses
+				isExecuting, found_exec_status := scriptRunner.exploits[exploit]
+				if found_exec_status && isExecuting {
+					scriptRunner.exploits[exploit] = false
+					found = true
+				} else {
+					found = false
+				}
+				break
+			}
+		}
+		fmt.Println("User", user, "wants to stop", exploit, ".Found", clients)
+		if !found {
+			http.Error(w, "Nonexisting user", http.StatusBadRequest)
+			return
+		} else {
+			for _, client := range clients {
+				data := []byte(`name=` + exploit)
+				resp, err := http.Post("http://"+client+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
+				if err != nil {
+					fmt.Println("Error on stopping script", exploit, ", error:", err)
+					return
+				}
+				defer resp.Body.Close()
+			}
+		}
+	} else {
+		http.Error(w, "You have to login first to use this feature", http.StatusUnauthorized)
+		return
+	}
+}
+
+func getStoppedExploitsHandler(w http.ResponseWriter, r *http.Request) {
+	user, okToken, okUser := verifyAuthentication(r)
+	if okToken && okUser {
+		result := make([]string, 0)
+		for _, scriptRunner := range scriptRunners {
+			if scriptRunner.user == user {
+				for exploit, isRunning := range scriptRunner.exploits {
+					if !isRunning {
+						result = append(result, exploit)
+					}
+				}
+				//return the result in json format
+				w.Header().Set("Content-Type", "application/json")
+				err := json.NewEncoder(w).Encode(result)
+				if err != nil {
+					fmt.Println("Error converting to json: ", err)
+				}
+				return
+			}
+		}
+		http.Error(w, "You are not running any script", http.StatusBadRequest)
+	} else {
+		http.Error(w, "You have to login first to use this feature", http.StatusUnauthorized)
+		return
 	}
 }

@@ -12,9 +12,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	scriptLock         sync.Mutex
+	executableScripts  = make(map[string]bool, 0)
+	executingProcesses = make(map[string]*exec.Cmd, 0)
 )
 
 func isExecutable(file os.FileInfo) bool {
@@ -40,76 +47,118 @@ func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration 
 
 	//execute the exploit
 
-	for {
-		cmd := exec.Command(script, team)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			fmt.Println("Error creating stdout pipe:", err)
-			return
-		}
+	cmd := exec.Command(script, team)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("Error creating stdout pipe:", err)
+		return
+	}
 
-		err = cmd.Start()
-		if err != nil {
-			fmt.Println("Error launching the exploit:", err)
-			return
-		}
-		scanner := bufio.NewScanner(stdout)
-		request_body := common.UploadFlagRequestBody{
-			Username: user,
-			Flags:    make([]common.Flag, 0),
-		}
-		for scanner.Scan() {
-			line := scanner.Text()
-			//fmt.Println("Line from script ", script, ":", line)
-			line = strings.TrimSpace(line)
-			if line == "" { //&& !cmd.ProcessState.Exited() {
-				fmt.Println("Empty line received from", script)
-				break
-			} else { //if line != "" {
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println("Error launching the exploit:", err)
+		return
+	}
 
-				flags := regexp.MustCompile(flag_format).FindAllString(line, -1)
+	scriptLock.Lock()
+	executingProcesses[script] = cmd
+	scriptLock.Unlock()
 
-				if len(flags) == 0 {
-					continue
-				}
-				fmt.Println(script, "@", team, ": Got", len(flags), "flags with", script, "from", team, ":", flags)
-				timestamp := time.Now().Format("2006-01-02 15:04:05")
-				for _, flag := range flags {
-					request_body.Flags = append(request_body.Flags, common.Flag{
-						Flag:        flag,
-						ExploitName: script,
-						TeamIp:      team,
-						Time:        timestamp,
-					})
-				}
+	scanner := bufio.NewScanner(stdout)
+	request_body := common.UploadFlagRequestBody{
+		Username: user,
+		Flags:    make([]common.Flag, 0),
+	}
+	for scanner.Scan() {
+		line := scanner.Text()
+		//fmt.Println("Line from script ", script, ":", line)
+		line = strings.TrimSpace(line)
+		if line == "" { //&& !cmd.ProcessState.Exited() {
+			fmt.Println("Empty line received from", script)
+			break
+		} else { //if line != "" {
+
+			flags := regexp.MustCompile(flag_format).FindAllString(line, -1)
+
+			if len(flags) == 0 {
+				continue
 			}
-		}
-		json_data, err := json.Marshal(request_body)
-		if err != nil {
-			fmt.Println("Error in parsing json request:", err)
-			return
-		}
-
-		req, err := http.NewRequest("POST", server_url+"/upload_flags", bytes.NewBufferString(string(json_data)))
-		if err != nil {
-			fmt.Println("Error creating GET request:", err)
-			return
-		}
-		req.Header.Set("X-Auth-Token", token)
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			fmt.Println("Error sending GET request:", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			fmt.Println("Received non-ok status code:", resp.StatusCode)
-			return
+			fmt.Println(script, "@", team, ": Got", len(flags), "flags with", script, "from", team, ":", flags)
+			timestamp := time.Now().Format("2006-01-02 15:04:05")
+			for _, flag := range flags {
+				request_body.Flags = append(request_body.Flags, common.Flag{
+					Flag:        flag,
+					ExploitName: script,
+					TeamIp:      team,
+					Time:        timestamp,
+				})
+			}
 		}
 	}
 
+	json_data, err := json.Marshal(request_body)
+	if err != nil {
+		fmt.Println("Error in parsing json request:", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", server_url+"/upload_flags", bytes.NewBufferString(string(json_data)))
+	if err != nil {
+		fmt.Println("Error creating GET request:", err)
+		return
+	}
+	req.Header.Set("X-Auth-Token", token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("Error sending GET request:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Received non-ok status code:", resp.StatusCode)
+		return
+	}
+}
+
+func handleStartProcess(w http.ResponseWriter, r *http.Request) {
+	scriptLock.Lock()
+	defer scriptLock.Unlock()
+
+	scriptName := r.FormValue("name")
+	executableScripts[scriptName] = true
+
+	fmt.Println("Script" + scriptName + "ready to be started again")
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func handleStopProcess(w http.ResponseWriter, r *http.Request) {
+	scriptLock.Lock()
+	defer scriptLock.Unlock()
+
+	scriptName := r.FormValue("name")
+
+	cmd, found := executingProcesses[scriptName]
+	if found {
+		err := cmd.Process.Kill()
+		if err != nil {
+			fmt.Println("Error on killing process associated to", scriptName)
+		}
+		delete(executingProcesses, scriptName)
+	}
+	if executableScripts[scriptName] {
+		executableScripts[scriptName] = false
+		fmt.Println("Script", scriptName, "stopped")
+	}
+	w.WriteHeader(http.StatusAccepted)
+
+}
+
+func exploitsControl(serverPort int) {
+	http.HandleFunc("/start", handleStartProcess)
+	http.HandleFunc("/stop", handleStopProcess)
+	http.ListenAndServe(":"+strconv.Itoa(serverPort), nil)
 }
 
 func main() {
@@ -155,25 +204,30 @@ func main() {
 		return
 	}
 
-	fmt.Println("Got this configuration from server: round duration=", server_conf.RoundDuration, ", teams:", server_conf.Teams, ", nop team:", server_conf.NopTeam, ", flag submitter server url:", server_conf.FlagidUrl, ", flag format:", server_conf.FlagFormat)
+	fmt.Println("Got this configuration from server: round duration=", server_conf.RoundDuration, ", teams:", server_conf.Teams, ", nop team:", server_conf.NopTeam, ", flag submitter server url:", server_conf.FlagidUrl, ", flag format:", server_conf.FlagFormat, ", client port:", server_conf.ClientPort)
+
+	//start the exploitsControl routine
+	go exploitsControl(server_conf.ClientPort)
+
+	//load exploits from exploit directory
+	var scripts []string
+
+	err = filepath.Walk(*exploit_dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && isExecutable(info) {
+			if has, err := hasShebang(path); err == nil && has {
+				executableScripts[path] = true
+				scripts = append(scripts, path)
+			}
+		} else {
+			fmt.Println("Script", path, "is not executable")
+		}
+		return nil
+	})
 
 	for {
-		//load exploits from exploit directory
-		var scripts []string
-
-		err = filepath.Walk(*exploit_dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() && isExecutable(info) {
-				if has, err := hasShebang(path); err == nil && has {
-					scripts = append(scripts, path)
-				}
-			} else {
-				fmt.Println("Script", path, "is not executable")
-			}
-			return nil
-		})
 
 		//run every script for each team
 		i := 0
@@ -195,6 +249,22 @@ func main() {
 			}
 		}
 		wg.Wait()
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
+
+		//reload exploits from the exploit directory
+		scripts = make([]string, 0)
+		err = filepath.Walk(*exploit_dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && isExecutable(info) {
+				if has, err := hasShebang(path); err == nil && has && executableScripts[path] {
+					scripts = append(scripts, path)
+				}
+			} else {
+				fmt.Println("Script", path, "is not executable")
+			}
+			return nil
+		})
 	}
 }

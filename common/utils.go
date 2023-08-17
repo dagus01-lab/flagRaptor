@@ -29,4 +29,5 @@ type FlagSubmitterConfig struct {
 	Teams         []string `json:"teams"`
 	NopTeam       string   `json:"nop_team"`
 	FlagidUrl     string   `json:"flagid_url"`
+	ClientPort    int      `json:"client_port"`
 }

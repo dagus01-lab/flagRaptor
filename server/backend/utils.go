@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"net/http"
 	"regexp"
 
@@ -12,7 +11,6 @@ import (
 var (
 	sessionName     = "SESSIONID"
 	sessionLifetime = 3600 // Session lifetime in seconds (1 hour)
-	db              *sql.DB
 
 	//GAME CONFIGURATION
 	// CHANGE THIS
@@ -30,6 +28,8 @@ var (
 	TEAM_IP     = "10.60.1.1"
 	TEAMS       = make([]string, 0)
 
+	CLIENT_PORT = 5050
+
 	//TEAMS.remove(TEAM_IP)
 	NOP_TEAM = "10.60.0.1" //TEAM_FORMAT.format(0) // this will be used to ask for flag ids' service list by CCIT exploits
 
@@ -43,7 +43,7 @@ var (
 	SUB_LIMIT        = 1      // number of requests per interval
 	SUB_INTERVAL     = 20     // interval duration
 	SUB_PAYLOAD_SIZE = 500    // max flag per request
-	SUB_URL          = "http://10.10.0.1:8080/flags"
+	SUB_URL          = "http://localhost:8000/flags"
 
 	//Don't worry about this
 	DB_NSUB = "NOT_SUBMITTED"
@@ -60,6 +60,11 @@ type WebSocketClient struct {
 	connection  *websocket.Conn
 	lastMinutes int
 	username    string
+}
+type ScriptRunner struct {
+	user      string
+	addresses []string
+	exploits  map[string]bool
 }
 
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
