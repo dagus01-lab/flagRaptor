@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import BarChartComponent from "./BarChartComponent";
+import BarChartComponent, {optionsTop, optionsCenter} from "./BarChartComponent";
 import FlagTableComponent from "./FlagTableComponent";
 import FlagSubmissionComponent from "./FlagSubmissionComponent";
 import MenuComponent from "./MenuComponent"
@@ -151,22 +151,35 @@ const Home = ({handleLogoutFunction, username}) => {
       <div>
         <MenuComponent setStatus={setStatus} setLoginFunction={handleLogoutFunction}/>
         <div>
-          <h2>Home</h2>
-          <p>Welcome to the home page! You can visualize your flags here.</p>
-          <BarChartComponent label="Your personal exploits:" data={personalExploitsdata}/>
-          <div style={{
-              display: 'flex',
-              flexDirection: 'row', /* Display children horizontally */
-              width: '100%', /* Occupy all horizontal space */
+          <div className="container">
+            <div style={{
+              flex: 1,
+              overflow: 'hidden',
             }}>
-          {personalExploitsdata.labels.map((exploit) => 
-            (
-              <ScriptRunnerControlButton script={exploit} initialState={stoppedExploits.indexOf(exploit)<0?"started":"stopped"} style={{flex:1}}></ScriptRunnerControlButton>
-            )
-            )}
+            <h2>Home</h2>
+            <p>Welcome to the home page! You can visualize your flags here:</p>
+            <BarChartComponent label="Your personal exploits:" data={personalExploitsdata} options={optionsCenter}/>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'row', /* Display children horizontally */
+                width: '100%', /* Occupy all horizontal space */
+              }}>
+            {personalExploitsdata.labels.map((exploit) => 
+              (
+                <ScriptRunnerControlButton script={exploit} initialState={stoppedExploits.indexOf(exploit)<0?"started":"stopped"} style={{flex:1}}></ScriptRunnerControlButton>
+              )
+              )}
+            </div>
+            </div>
+            <div style={{
+                flex: 1,
+                overflow: 'hidden',
+                height: '100%'
+            }}>
+            <BarChartComponent label="Your team exploits:" data={teamExploitsdata} options={optionsTop}/>
+            <BarChartComponent label="Your team submissions:" data={teamStatusdata} options={optionsTop} />
+            </div>
           </div>
-          <BarChartComponent label="Your team exploits:" data={teamExploitsdata} />
-          <BarChartComponent label="Your team submissions:" data={teamStatusdata} />
         </div>
   
       </div>
@@ -178,7 +191,7 @@ const Home = ({handleLogoutFunction, username}) => {
       <div>
         <MenuComponent setStatus={setStatus} setLoginFunction={handleLogoutFunction}/>
         <div>
-          <h2>Home</h2>
+          <h2>Explore</h2>
           <p>Welcome to the explore page! You can visualize all the flags that have been submitted by your team.</p>
           <FlagTableComponent data={flagsData}></FlagTableComponent>
         </div>
@@ -192,7 +205,7 @@ const Home = ({handleLogoutFunction, username}) => {
       <div>
         <MenuComponent setStatus={setStatus} setLoginFunction={handleLogoutFunction}/>
         <div>
-          <h2>Home</h2>
+          <h2>Submit</h2>
           <p>Welcome to the submit page! You can insert here some flags you have stolen by hand:</p>
           <FlagSubmissionComponent user={username}></FlagSubmissionComponent>
         </div>

@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import { Button } from '@mui/material';
 
 const ScriptRunnerControlButton = ({script, initialState, style})=>{
 
@@ -63,7 +64,7 @@ const ScriptRunnerControlButton = ({script, initialState, style})=>{
         }
     }
     return(
-        <button id={script} onClick={onclickFunction} style={style}>{status}</button>
+        <Button id={script} onClick={onclickFunction} style={style} color={status==="stopped"?"error":"success"}>{status}</Button>
     )
 }
 export default ScriptRunnerControlButton;

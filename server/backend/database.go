@@ -28,6 +28,22 @@ func createFlagsTable(db *sql.DB) error {
 	return err
 }
 
+func createUsersTable(db *sql.DB) error {
+	createTableSQL := `
+		CREATE TABLE IF NOT EXISTS users
+		(
+			username        TEXT PRIMARY KEY,
+			password        TEXT NOT NULL,
+		);
+	`
+
+	for _, user := range cfg.Users {
+		db.Exec("INSERT INTO users VALUES (", user.Username, ",", user.Password, ")")
+	}
+	_, err := db.Exec(createTableSQL)
+	return err
+}
+
 func find_flags_by_names(flags []string) ([]common.Flag, error) {
 	result := make([]common.Flag, 0)
 	if len(flags) == 0 {
@@ -117,7 +133,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 	query := "SELECT flag FROM flags WHERE time > ? AND status = ?"
 	// query the flags which are not expired yet and were not submitted
 	dbLock.Lock()
-	rows, err := db.Query(query, expiration_time, DB_NSUB)
+	rows, err := db.Query(query, expiration_time, cfg.DBNSUB)
 	dbLock.Unlock()
 	if err != nil {
 		return flags, err
@@ -125,7 +141,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 	defer rows.Close()
 
 	// save all the received flags into a list
-	for rows.Next() && len(flags) < SUB_PAYLOAD_SIZE {
+	for rows.Next() && len(flags) < cfg.SubPayloadSize {
 		var flag string
 		err := rows.Scan(&flag)
 		if err != nil {
@@ -140,7 +156,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 func setOldFlagsAsExpired(expiration_time string) error {
 	update_old_flags_query := "UPDATE flags SET status = ? WHERE time <= ?"
 	dbLock.Lock()
-	_, err := db.Exec(update_old_flags_query, DB_EXP, expiration_time)
+	_, err := db.Exec(update_old_flags_query, cfg.DBEXP, expiration_time)
 	dbLock.Unlock()
 	return err
 }
@@ -150,7 +166,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 	query := "UPDATE flags SET status = ?, server_response = ? WHERE flag = ?"
 	if strings.Contains(strings.ToLower(submitterFormat.SUB_INVALID), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, DB_SUB, DB_ERR, item.Flag)
+		_, err := db.Exec(query, cfg.DBSUB, cfg.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -163,7 +179,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_YOUR_OWN), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, DB_SUB, DB_ERR, item.Flag)
+		_, err := db.Exec(query, cfg.DBSUB, cfg.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -175,7 +191,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		}
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_NOP), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, DB_SUB, DB_ERR, item.Flag)
+		_, err := db.Exec(query, cfg.DBSUB, cfg.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -187,7 +203,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		}
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_OLD), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, DB_SUB, DB_EXP, item.Flag)
+		_, err := db.Exec(query, cfg.DBSUB, cfg.DBEXP, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -200,7 +216,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_STOLEN), strings.ToLower(item.Message)) ||
 		strings.Contains(strings.ToLower(submitterFormat.SUB_ACCEPTED), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, DB_SUB, DB_SUCC, item.Flag)
+		_, err := db.Exec(query, cfg.DBSUB, cfg.DBSUCC, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -212,7 +228,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		}
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_NOT_AVAILABLE), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, DB_SUB, DB_SUCC, item.Flag)
+		_, err := db.Exec(query, cfg.DBSUB, cfg.DBSUCC, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)

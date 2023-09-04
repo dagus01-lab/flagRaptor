@@ -1,3 +1,4 @@
+import { Button } from '@mui/material';
 import React, { useState } from 'react';
 
 const FlagSubmissionComponent = ({username}) => {
@@ -72,7 +73,7 @@ const FlagSubmissionComponent = ({username}) => {
         placeholder="Enter your flags here"
       />
       <br />
-      <button onClick={handleSubmit}>Submit Flag</button>
+      <Button onClick={handleSubmit}>Submit Flag</Button>
     </div>
   );
 };

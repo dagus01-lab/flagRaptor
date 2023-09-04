@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import DatePicker from 'react-datepicker'
 import Modal from 'react-modal';
 import DateTimePicker from './DateTimePicker';
+import { Input } from '@mui/base/Input'
+import { Button } from '@mui/material'
 
 export const PAGE_SIZE = 50;
 const FlagTableComponent = ({ data }) => {
@@ -80,7 +81,7 @@ const FlagTableComponent = ({ data }) => {
   return (
     <div>
       <h1>Flag Table</h1>
-      <button onClick={openModal}>Filter Flags</button>
+      <Button onClick={openModal}>Filter Flags</Button>
 
       <table>
         <thead>
@@ -110,13 +111,13 @@ const FlagTableComponent = ({ data }) => {
       </table>
       <div>
         {Array.from({ length: totalPages }, (_, index) => (
-          <button
+          <Button
             key={index + 1}
             onClick={() => setCurrentPage(index + 1)}
             style={{ fontWeight: currentPage === index + 1 ? 'bold' : 'normal' }}
           >
             {index + 1}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -161,12 +162,12 @@ const FlagTableComponent = ({ data }) => {
           </div>
       
           <label for="flag_filter">Enter the flag you want to search for:</label>
-          <input
-              id="flag_filter"
-              type="text"
-              placeholder="Flag sustring"
-              value={filterFlag}
-              onChange={e => setFilterFlag(e.target.value)}
+          <Input
+            id="flag_filter"
+            type="text"
+            placeholder="Flag sustring"
+            value={filterFlag}
+            onChange={e => setFilterFlag(e.target.value)}
           />
           <label for="username_filter">Enter the username you want to filter:</label>
           <input

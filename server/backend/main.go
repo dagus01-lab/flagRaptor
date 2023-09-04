@@ -2,11 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"myflagsubmitter/common"
 	"net/http"
-	"strconv"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -24,13 +24,17 @@ var db *sql.DB
 var dbLock sync.Mutex
 
 func main() {
-	for i := 1; i < NUMBER_OF_TEAMS; i++ {
-		TEAMS = append(TEAMS, re.ReplaceAllString(TEAM_FORMAT, strconv.Itoa(i)))
+	fileName := flag.String("f", "config.yaml", "configuration file name")
+
+	cfg, err := NewConfig(*fileName)
+	if err != nil {
+		fmt.Println("Error on reading configuration from file")
 	}
 
 	// Initialize the SQLite database
 	db = initDatabase()
-	go createFlagsTable(db)
+	createFlagsTable(db)
+	createUsersTable(db)
 	defer db.Close()
 
 	//Initialize the session manager
@@ -51,7 +55,7 @@ func main() {
 	appRouter.PathPrefix("/").Handler(http.FileServer(http.Dir("../frontend/dist")))
 	//http.Handle("/", apiRouter)
 
-	go submission_loop()
+	go submission_loop(&cfg)
 	fmt.Println("Server listening on port 5000")
 	http.ListenAndServe(":5000", appRouter)
 

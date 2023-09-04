@@ -19,7 +19,7 @@ ChartJS.register(
   Legend
 );
 
-export const options = {
+export const optionsTop = {
   responsive: true,
   plugins: {
     legend: {
@@ -27,8 +27,16 @@ export const options = {
     },
   },
 };
+export const optionsCenter = {
+  responsive: true,
+  plugins: {
+    legend: {
+      position: 'center',
+    },
+  },
+};
 
-const BarChartComponent = ({label,data}) => {
+const BarChartComponent = ({label,data,options}) => {
   const [chartData, setChartData] = useState(data);
 
   useEffect(() => {

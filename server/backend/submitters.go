@@ -39,7 +39,7 @@ var (
 )
 
 func GetAppSubmitter() (SubmitterFormat, func(flags []string) []ResponseItem) {
-	switch SUB_PROTOCOL {
+	switch cfg.SubProtocol {
 	case "ccit":
 		return CCITSubmitterFormat, CCITSubmitter
 	case "dummy":
@@ -68,7 +68,7 @@ func CCITSubmitter(flags []string) []ResponseItem {
 		fmt.Println("Error marshaling request payload: ", err)
 		return nil
 	}
-	req, err := http.NewRequest("PUT", SUB_URL, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("PUT", cfg.SubUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		fmt.Println("Error creating PUT request: ", err)
 		return nil

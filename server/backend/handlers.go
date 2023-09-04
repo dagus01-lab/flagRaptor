@@ -16,7 +16,7 @@ import (
 func verifyAuthentication(r *http.Request) (string, bool, bool) {
 	authToken := r.Header.Get("X-Auth-Token")
 
-	if authToken == API_TOKEN {
+	if authToken == cfg.APIToken {
 		//fmt.Println("Authorization successful!")
 		user, ok := getAuthenticatedUsername(r)
 		if !ok {
@@ -40,10 +40,22 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		// Authenticate user by checking credentials from the database
-		if WEB_PASSWORD != password {
-			http.Error(w, "Invalid password", http.StatusUnauthorized)
-			return
+		if cfg.AuthEnable {
+			rows, err := db.Query("SELECT * FROM users WHERE username=", username, " AND PASSWORD=", password)
+			if err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			if !rows.Next() {
+				http.Error(w, "Invalid password", http.StatusUnauthorized)
+				return
+			}
+
+		} else {
+			if cfg.WebPassword != password {
+				http.Error(w, "Invalid password", http.StatusUnauthorized)
+				return
+			}
 		}
 
 		// Set the session cookie upon successful login
@@ -62,14 +74,15 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 func getConfigHandler(w http.ResponseWriter, r *http.Request) {
 	_, okToken, _ := verifyAuthentication(r)
+
 	if okToken {
 		config := common.FlagSubmitterConfig{
-			FlagFormat:    FLAG_FORMAT,
-			RoundDuration: ROUND_DURATION,
-			Teams:         TEAMS,
-			NopTeam:       NOP_TEAM,
-			FlagidUrl:     FLAGID_URL,
-			ClientPort:    CLIENT_PORT,
+			FlagFormat:    cfg.FlagFormat,
+			RoundDuration: cfg.RoundDuration,
+			Teams:         cfg.Teams,
+			NopTeam:       cfg.NopTeam,
+			FlagidUrl:     cfg.FlagIDUrl,
+			ClientPort:    cfg.ClientPort,
 		}
 
 		jsonData, err := json.Marshal(config)
@@ -89,6 +102,7 @@ func getConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 	_, okToken, _ := verifyAuthentication(r)
+
 	if okToken {
 		//fmt.Println("Incoming Request of flags upload")
 		var data common.UploadFlagRequestBody
@@ -106,8 +120,8 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 				ExploitName:    item.ExploitName,
 				TeamIp:         item.TeamIp,
 				Time:           item.Time,
-				Status:         DB_NSUB,
-				ServerResponse: DB_NSUB,
+				Status:         cfg.DBNSUB,
+				ServerResponse: cfg.DBNSUB,
 			}
 
 			rows = append(rows, flag)
@@ -118,7 +132,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 		scriptRunnersLock.Lock()
 		userFound := false
 		remoteAddr := strings.Split(r.RemoteAddr, ":")
-		clientAddress := strings.Join(remoteAddr[:len(remoteAddr)-1], ":") + ":" + strconv.Itoa(CLIENT_PORT)
+		clientAddress := strings.Join(remoteAddr[:len(remoteAddr)-1], ":") + ":" + strconv.Itoa(cfg.ClientPort)
 		for _, scriptRunner := range scriptRunners {
 			if scriptRunner.user == rows[0].Username {
 				addressFound := false
@@ -190,7 +204,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				query += " (" + "\"" + row.Flag + "\",\"" + row.Username + "\",\"" + row.ExploitName + "\",\"" + row.TeamIp + "\",\"" + row.Time + "\",\"" + DB_NSUB + "\", \"" + DB_NSUB + "\") "
+				query += " (" + "\"" + row.Flag + "\",\"" + row.Username + "\",\"" + row.ExploitName + "\",\"" + row.TeamIp + "\",\"" + row.Time + "\",\"" + cfg.DBNSUB + "\", \"" + cfg.DBNSUB + "\") "
 				if i != len(rows)-1 {
 					query += ","
 				}
@@ -225,6 +239,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 
 func getFlagsHandler(w http.ResponseWriter, r *http.Request) {
 	user, okToken, okUser := verifyAuthentication(r)
+
 	if okToken && okUser {
 		var result []common.Flag
 		query := "SELECT flag, username, exploit_name, team_ip, time, status, COALESCE(server_response, 'NOT_SUBMITTED') as server_response FROM flags where username = ?"

@@ -11,7 +11,7 @@ func getExpiredFlags(expiration_time string) ([]common.Flag, error) {
 	expired_flags := make([]common.Flag, 0)
 	expired_flags_query := "SELECT flag, username, exploit_name, team_ip, time, server_response FROM flags WHERE status = ? AND time <= ?"
 	dbLock.Lock()
-	rows, err := db.Query(expired_flags_query, DB_EXP, expiration_time)
+	rows, err := db.Query(expired_flags_query, cfg.DBEXP, expiration_time)
 	dbLock.Unlock()
 	if err != nil {
 		return expired_flags, err
@@ -25,14 +25,17 @@ func getExpiredFlags(expiration_time string) ([]common.Flag, error) {
 		if err != nil {
 			return expired_flags, err
 		}
-		flag.Status = DB_EXP
+		flag.Status = cfg.DBEXP
 		expired_flags = append(expired_flags, flag)
 		//fmt.Println("Received flag:", flag)
 	}
 	return expired_flags, nil
 }
 
-func submission_loop() {
+var cfg Config
+
+func submission_loop(config *Config) {
+	cfg = *config
 	//logica per scegliere il submitter protocol giusto
 	submitterFormat, submitter := GetAppSubmitter()
 	if submitter == nil {
@@ -44,7 +47,7 @@ func submission_loop() {
 	fmt.Println("Starting submission loop...")
 	for {
 		s_time := time.Now()
-		expiration_time := time.Now().Add(-time.Duration(FLAG_ALIVE * int(time.Second))).Format("2006-01-02 15:04:05")
+		expiration_time := time.Now().Add(-time.Duration(cfg.FlagAlive * int(time.Second))).Format("2006-01-02 15:04:05")
 
 		flags, err := getFlagsToCheck(expiration_time)
 		if err != nil {
@@ -61,10 +64,10 @@ func submission_loop() {
 		// flags submission
 		i := 0
 		max_sub := 0
-		if SUB_LIMIT > len(flags) {
+		if cfg.SubLimit > len(flags) {
 			max_sub = len(flags)
 		} else {
-			max_sub = SUB_LIMIT
+			max_sub = cfg.SubLimit
 		}
 
 		for i < max_sub {
@@ -72,7 +75,7 @@ func submission_loop() {
 			result := submitter(flags)
 			if result == nil {
 				fmt.Println("Error in flag checker server response!")
-				time.Sleep(time.Duration(SUB_INTERVAL) * time.Second)
+				time.Sleep(time.Duration(cfg.SubInterval) * time.Second)
 			}
 			//fmt.Println("Flag check response:", result)
 			accepted := 0
@@ -114,9 +117,9 @@ func submission_loop() {
 			}
 
 			duration := time.Now().Sub(s_time)
-			if duration < time.Duration(SUB_INTERVAL)*time.Second {
+			if duration < time.Duration(cfg.SubInterval)*time.Second {
 				//fmt.Println("Sleeping for ", time.Duration(SUB_INTERVAL)*time.Second-duration)
-				time.Sleep(time.Duration(SUB_INTERVAL)*time.Second - duration)
+				time.Sleep(time.Duration(cfg.SubInterval)*time.Second - duration)
 			}
 		}
 	}

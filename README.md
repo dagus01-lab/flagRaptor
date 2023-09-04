@@ -6,6 +6,7 @@ Flag submission system for Attack/Defense CTFs.
     * [Configuration](#configuration)
     * [Usage](#usage)
 * [Client](#client)
+* [Screenshots](#screenshots)
 
 ## Server
 The server is a go web application that uses SQLite as its database engine: It receives flags stolen by the team members and sends them
@@ -27,27 +28,26 @@ npm install
 npx webpack --config webpack.config.js
 ```
 ### Configuration
-Edit the parameters in [utils.go](server/backend/utils.go)
+It is possible to give the flagSubmitter a .yaml file for configuration, and if it is not provided, 
+the file [config.yaml](server/backend/config.yaml) is chosen. These are the main parameters that can be specified:
 
-- `WEB_PASSWORD`: the password to access the web interface
-- `API_TOKEN`: token used for communication between clients and server
-- `TEAM_TOKEN`: token used to submit flags
-- `FLAG_FORMAT`: string containing the regex format of the flags
-- `YOUR_TEAM`: the ip address of your team
-- `TEAMS`: the ip addresses of the teams in the competition
-- `ROUND_DURATION`: the duration of a round (or *tick*) in seconds
-- `FLAG_ALIVE`: the number of seconds a flag can be considered valid
-- `SUB_PROTOCOL`: gameserver submission protocol. Valid values are `dummy` (will only print flags on stdout) and `ccit`
-- `SUB_LIMIT`: number of flags that can be sent to the organizers' server each `SUB_INTERVAL`
-- `SUB_INTERVAL`: interval in seconds for the submission; if the submission round takes more than the number of seconds
+- `webPassword`: the password to access the web interface
+- `apiToken`: token used for communication between clients and server
+- `flagFormat`: string containing the regex format of the flags
+- `teamIP`: the ip address of your team
+- `teamFormat`: the ip addresses of the teams in the competition, expressed with a wildcard
+- `roundDuration`: the duration of a round (or *tick*) in seconds
+- `subProtocol`: gameserver submission protocol. Valid values are `dummy` (will only print flags on stdout) and `ccit`
+- `subLimit`: number of flags that can be sent to the organizers' server each `subInterval`
+- `subInterval`: interval in seconds for the submission; if the submission round takes more than the number of seconds
                   specified, the background submission loop will not sleep
-- `SUB_URL`: the url used for the verification of the flags
-- `CLIENT_PORT`: the port of the clients, through which the server can order them to stop/restart some exploits
+- `subUrl`: the url used for the verification of the flags
+- `clientPort`: the port of the clients, through which the server can order them to stop/restart some exploits
 
 ### Usage
 The backend needs to be compiled before execution
 ```
-cd backend
+cd backend -f CONF_FILE
 go build
 ./backend
 ```
@@ -69,14 +69,18 @@ server.
 Moreover the client listens on a specific port, in order to allow the server to stop/restart some of the
 exploits that are in the specified directory
 
+## Screenshots
+![Connection Content](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/home.png)
+![Connection Content](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/explore.png)
+![Connection Content](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/submit.png)
+
 ### REMEMBER
 
 - Attack scripts must have coherent names
 - Attack scripts must have shebang at the beginning
 - Attack scripts must be executable
 - Set
-    - `TEAM_TOKEN`
-    - `YOUR_TEAM`
-    - `FLAG_FORMAT`
-    - `SUB_URL`
+    - `team`
+    - `flagFormat`
+    - `subUrl`
     - Strings of verification messages if necessary
