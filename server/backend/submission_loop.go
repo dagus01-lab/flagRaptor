@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"myflagsubmitter/common"
 	"sync"
 	"time"
@@ -11,7 +12,7 @@ func getExpiredFlags(expiration_time string) ([]common.Flag, error) {
 	expired_flags := make([]common.Flag, 0)
 	expired_flags_query := "SELECT flag, username, exploit_name, team_ip, time, server_response FROM flags WHERE status = ? AND time <= ?"
 	dbLock.Lock()
-	rows, err := db.Query(expired_flags_query, cfg.DBEXP, expiration_time)
+	rows, err := db.Query(expired_flags_query, cfg.SubmissionConf.DBEXP, expiration_time)
 	dbLock.Unlock()
 	if err != nil {
 		return expired_flags, err
@@ -25,7 +26,7 @@ func getExpiredFlags(expiration_time string) ([]common.Flag, error) {
 		if err != nil {
 			return expired_flags, err
 		}
-		flag.Status = cfg.DBEXP
+		flag.Status = cfg.SubmissionConf.DBEXP
 		expired_flags = append(expired_flags, flag)
 		//fmt.Println("Received flag:", flag)
 	}
@@ -39,19 +40,19 @@ func submission_loop(config *Config) {
 	//logica per scegliere il submitter protocol giusto
 	submitterFormat, submitter := GetAppSubmitter()
 	if submitter == nil {
-		fmt.Println("Invalid format for flag submission")
+		log.Println("Invalid format for flag submission")
 		return
 	}
 
 	time.Sleep(5 * time.Second)
-	fmt.Println("Starting submission loop...")
+	log.Println("Starting submission loop...")
 	for {
 		s_time := time.Now()
-		expiration_time := time.Now().Add(-time.Duration(cfg.FlagAlive * int(time.Second))).Format("2006-01-02 15:04:05")
+		expiration_time := time.Now().Add(-cfg.GameConf.FlagAlive).Format("2006-01-02 15:04:05")
 
 		flags, err := getFlagsToCheck(expiration_time)
 		if err != nil {
-			fmt.Println("Error executing query: ", err)
+			log.Println("Error executing query: ", err)
 			time.Sleep(1 * time.Second)
 			continue
 		}
@@ -59,25 +60,24 @@ func submission_loop(config *Config) {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		//fmt.Println("Flags on the DB: ", flags)
-
 		// flags submission
 		i := 0
 		max_sub := 0
-		if cfg.SubLimit > len(flags) {
+		if cfg.SubmissionConf.SubLimit > len(flags) {
 			max_sub = len(flags)
 		} else {
-			max_sub = cfg.SubLimit
+			max_sub = cfg.SubmissionConf.SubLimit
 		}
 
 		for i < max_sub {
-			fmt.Println("Submitting flags to checker server...")
+			log.Println("Submitting flags to checker server...")
 			result := submitter(flags)
 			if result == nil {
-				fmt.Println("Error in flag checker server response!")
-				time.Sleep(time.Duration(cfg.SubInterval) * time.Second)
+				log.Println("Error in flag checker server response!")
+				time.Sleep(cfg.SubmissionConf.SubInterval)
 			}
-			//fmt.Println("Flag check response:", result)
+
+			//log.Println("Flag check response:", result)
 			accepted := 0
 			old := 0
 			nop := 0
@@ -108,7 +108,7 @@ func submission_loop(config *Config) {
 			}
 
 			//write the updates to all the clients connected to the webapp
-			updated_flags, err := find_flags_by_names(flags)
+			updated_flags, err := findFlagsByNames(flags)
 			if err != nil {
 				fmt.Println("Error in updating flags to clients: ", err)
 			} else {
@@ -117,9 +117,9 @@ func submission_loop(config *Config) {
 			}
 
 			duration := time.Now().Sub(s_time)
-			if duration < time.Duration(cfg.SubInterval)*time.Second {
+			if duration < cfg.SubmissionConf.SubInterval {
 				//fmt.Println("Sleeping for ", time.Duration(SUB_INTERVAL)*time.Second-duration)
-				time.Sleep(time.Duration(cfg.SubInterval)*time.Second - duration)
+				time.Sleep(cfg.SubmissionConf.SubInterval - duration)
 			}
 		}
 	}

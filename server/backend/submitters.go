@@ -39,7 +39,7 @@ var (
 )
 
 func GetAppSubmitter() (SubmitterFormat, func(flags []string) []ResponseItem) {
-	switch cfg.SubProtocol {
+	switch cfg.SubmissionConf.SubProtocol {
 	case "ccit":
 		return CCITSubmitterFormat, CCITSubmitter
 	case "dummy":
@@ -68,13 +68,13 @@ func CCITSubmitter(flags []string) []ResponseItem {
 		fmt.Println("Error marshaling request payload: ", err)
 		return nil
 	}
-	req, err := http.NewRequest("PUT", cfg.SubUrl, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("PUT", cfg.SubmissionConf.SubUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
 		fmt.Println("Error creating PUT request: ", err)
 		return nil
 	}
 	req.Header.Set("Content-Type", "application/json")
-
+	req.Header.Set("X-Team-Token", cfg.GameConf.TeamToken)
 	//perform the PUT request
 	client := &http.Client{}
 	resp, err := client.Do(req)

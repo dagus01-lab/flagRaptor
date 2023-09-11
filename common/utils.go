@@ -1,5 +1,7 @@
 package common
 
+import "time"
+
 type SubmitterFormat struct {
 	SUB_ACCEPTED, SUB_INVALID, SUB_OLD, SUB_YOUR_OWN, SUB_STOLEN, SUB_NOP, SUB_NOT_AVAILABLE string
 }
@@ -24,10 +26,10 @@ type UploadFlagRequestBody struct {
 	Flags    []Flag `json:"flags"`
 }
 type FlagSubmitterConfig struct {
-	FlagFormat    string   `json:"flag_format"`
-	RoundDuration int      `json:"round_duration"`
-	Teams         []string `json:"teams"`
-	NopTeam       string   `json:"nop_team"`
-	FlagidUrl     string   `json:"flagid_url"`
-	ClientPort    int      `json:"client_port"`
+	FlagFormat    string        `json:"flag_format"`
+	RoundDuration time.Duration `json:"round_duration"`
+	Teams         []string      `json:"teams"`
+	NopTeam       string        `json:"nop_team"`
+	FlagidUrl     string        `json:"flagid_url"`
+	ClientPort    int           `json:"client_port"`
 }

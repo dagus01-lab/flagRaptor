@@ -33,12 +33,18 @@ func main() {
 
 	// Initialize the SQLite database
 	db = initDatabase()
-	createFlagsTable(db)
-	createUsersTable(db)
+	err = createTables()
+	if err != nil {
+		log.Fatal("Error on creating tables:", err)
+	}
+	scriptRunners, err = get_stopped_exploits()
+	if err != nil {
+		log.Fatal("Error on getting stopped exploits:", err)
+	}
 	defer db.Close()
 
 	//Initialize the session manager
-	store = sessions.NewCookieStore([]byte("your-secret-key"))
+	store = sessions.NewCookieStore([]byte(cfg.ServerConf.SecretKey))
 	initSessionManager()
 
 	//set up a router for API
@@ -56,9 +62,8 @@ func main() {
 	//http.Handle("/", apiRouter)
 
 	go submission_loop(&cfg)
-	fmt.Println("Server listening on port 5000")
+	log.Println("Server listening on port 5000")
 	http.ListenAndServe(":5000", appRouter)
-
 }
 
 func initDatabase() *sql.DB {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"myflagsubmitter/common"
 	"strings"
@@ -9,7 +8,23 @@ import (
 	"time"
 )
 
-func createFlagsTable(db *sql.DB) error {
+func createTables() error {
+	err := createFlagsTable()
+	if err != nil {
+		return err
+	}
+	err = createUsersTable()
+	if err != nil {
+		return err
+	}
+	err = createStoppedExploitsTable()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createFlagsTable() error {
 	createTableSQL := `
 		CREATE TABLE IF NOT EXISTS flags
 		(
@@ -28,23 +43,35 @@ func createFlagsTable(db *sql.DB) error {
 	return err
 }
 
-func createUsersTable(db *sql.DB) error {
+func createUsersTable() error {
 	createTableSQL := `
 		CREATE TABLE IF NOT EXISTS users
 		(
 			username        TEXT PRIMARY KEY,
-			password        TEXT NOT NULL,
+			password        TEXT NOT NULL
 		);
 	`
-
-	for _, user := range cfg.Users {
+	_, err := db.Exec(createTableSQL)
+	for _, user := range cfg.AuthConf.Users {
 		db.Exec("INSERT INTO users VALUES (", user.Username, ",", user.Password, ")")
 	}
+	return err
+}
+
+func createStoppedExploitsTable() error {
+	createTableSQL := `
+		CREATE TABLE IF NOT EXISTS stopped_exploits
+		(
+			username TEXT NOT NULL,
+			exploit_name    TEXT NOT NULL,
+			PRIMARY KEY (exploit_name, username)
+		);
+	`
 	_, err := db.Exec(createTableSQL)
 	return err
 }
 
-func find_flags_by_names(flags []string) ([]common.Flag, error) {
+func findFlagsByNames(flags []string) ([]common.Flag, error) {
 	result := make([]common.Flag, 0)
 	if len(flags) == 0 {
 		return result, nil
@@ -133,7 +160,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 	query := "SELECT flag FROM flags WHERE time > ? AND status = ?"
 	// query the flags which are not expired yet and were not submitted
 	dbLock.Lock()
-	rows, err := db.Query(query, expiration_time, cfg.DBNSUB)
+	rows, err := db.Query(query, expiration_time, cfg.SubmissionConf.DBNSUB)
 	dbLock.Unlock()
 	if err != nil {
 		return flags, err
@@ -141,7 +168,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 	defer rows.Close()
 
 	// save all the received flags into a list
-	for rows.Next() && len(flags) < cfg.SubPayloadSize {
+	for rows.Next() && len(flags) < cfg.SubmissionConf.SubPayloadSize {
 		var flag string
 		err := rows.Scan(&flag)
 		if err != nil {
@@ -156,7 +183,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 func setOldFlagsAsExpired(expiration_time string) error {
 	update_old_flags_query := "UPDATE flags SET status = ? WHERE time <= ?"
 	dbLock.Lock()
-	_, err := db.Exec(update_old_flags_query, cfg.DBEXP, expiration_time)
+	_, err := db.Exec(update_old_flags_query, cfg.SubmissionConf.DBEXP, expiration_time)
 	dbLock.Unlock()
 	return err
 }
@@ -166,7 +193,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 	query := "UPDATE flags SET status = ?, server_response = ? WHERE flag = ?"
 	if strings.Contains(strings.ToLower(submitterFormat.SUB_INVALID), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, cfg.DBSUB, cfg.DBERR, item.Flag)
+		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -179,7 +206,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_YOUR_OWN), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, cfg.DBSUB, cfg.DBERR, item.Flag)
+		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -191,7 +218,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		}
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_NOP), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, cfg.DBSUB, cfg.DBERR, item.Flag)
+		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -203,7 +230,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		}
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_OLD), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, cfg.DBSUB, cfg.DBEXP, item.Flag)
+		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBEXP, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -216,7 +243,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_STOLEN), strings.ToLower(item.Message)) ||
 		strings.Contains(strings.ToLower(submitterFormat.SUB_ACCEPTED), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, cfg.DBSUB, cfg.DBSUCC, item.Flag)
+		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBSUCC, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -228,7 +255,7 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		}
 	} else if strings.Contains(strings.ToLower(submitterFormat.SUB_NOT_AVAILABLE), strings.ToLower(item.Message)) {
 		dbLock.Lock()
-		_, err := db.Exec(query, cfg.DBSUB, cfg.DBSUCC, item.Flag)
+		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBSUCC, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
 			fmt.Println("Error in updating flags: ", err)
@@ -241,4 +268,60 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 	} else {
 		fmt.Println("Unknown message received for flag ", item.Flag, ": ", item.Message)
 	}
+}
+
+func get_stopped_exploits() ([]ScriptRunner, error) {
+	scriptRunners := make([]ScriptRunner, 0)
+	query := "SELECT * FROM stopped_exploits"
+	dbLock.Lock()
+	rows, err := db.Query(query)
+	dbLock.Unlock()
+	if err != nil {
+		return scriptRunners, err
+	}
+	defer rows.Close()
+
+	// save all the received flags into a list
+	for rows.Next() {
+		var exploit struct {
+			Username     string
+			Exploit_name string
+		}
+		err := rows.Scan(&exploit)
+		if err != nil {
+			fmt.Println("Error scanning row: ", err)
+			break
+		}
+		found := false
+		for _, scriptRunner := range scriptRunners {
+			if scriptRunner.user == exploit.Username {
+				scriptRunner.exploits[exploit.Exploit_name] = false
+				found = true
+				break
+			}
+		}
+		if !found {
+			scriptRunner := ScriptRunner{
+				user:     exploit.Username,
+				exploits: make(map[string]bool, 0),
+			}
+			scriptRunner.exploits[exploit.Exploit_name] = false
+			scriptRunners = append(scriptRunners, scriptRunner)
+		}
+	}
+
+	return scriptRunners, nil
+}
+
+func addStoppedExploit(username string, exploit_name string) error {
+	dbLock.Lock()
+	_, err := db.Exec("INSERT INTO stopped_exploits VALUES (", username, ",", exploit_name, ")")
+	dbLock.Unlock()
+	return err
+}
+func removeStoppedExploit(username string, exploit_name string) error {
+	dbLock.Lock()
+	_, err := db.Exec("DELETE FROM stopped_exploits WHERE username=", username, " AND exploit_name=", exploit_name)
+	dbLock.Unlock()
+	return err
 }

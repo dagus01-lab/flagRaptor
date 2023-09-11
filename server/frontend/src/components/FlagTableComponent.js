@@ -3,27 +3,26 @@ import Modal from 'react-modal';
 import DateTimePicker from './DateTimePicker';
 import { Input } from '@mui/base/Input'
 import { Button } from '@mui/material'
+import { DataGrid, GridColDef, GridValueGetterParams } from '@mui/x-data-grid'
 
-export const PAGE_SIZE = 50;
 const FlagTableComponent = ({ data }) => {
-  const [flags, setFlags] = useState(data)
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filteredFlags, setFilteredFlags] = useState([...flags]);
-  const [filterUsername, setFilterUsername] = useState('');
-  const [filterFlag, setFilterFlag] = useState('');
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [filterTeam, setFilterTeam] = useState("All")
-  const [filterExploitName, setFilterExploitName] = useState("All")
-  const [filterCheckSystemResponse, setFilterCheckSystemResponse] = useState("")
+  const [filteredFlags, setFilteredFlags] = useState([]);
+  const [columns] = useState([
+    {field: 'flag', headerName: 'Flag', width: 350},
+    {field: 'status', headerName: 'Status', width: 100},
+    {field: 'server_response', headerName: 'Server Response', width: 100},
+    {field: 'exploit_name', headerName: 'Exploit Name', width: 150},
+    {field: 'time', headerName: 'Time', width: 200},
+    {field: 'team_ip', headerName: 'Team IP', width:100},
+    {field: 'username', headerName: 'Username', width:100},
+  ])
   const [fromDateTime, setFromDateTime] = useState("")
   const [toDateTime, setToDateTime] = useState("")
 
-  /*useEffect(() => {
-    // Update the chart data whenever the "data" prop changes
-    setFlags(data);
-    handleFilter();
-  }, [data]);*/
+  useEffect(() => {
+    handleFilter()
+  }, []);
 
   const openModal = () => {
     setIsModalOpen(true);
@@ -39,118 +38,43 @@ const FlagTableComponent = ({ data }) => {
       alert("The first datetime must be before the second one")
       return
     }
+    console.log("data: "+data)
 
-    var filtered = flags
-    if(filterUsername != '')
-      filtered = filtered.filter(flag => flag.username === filterUsername);
-    if(filterFlag != ''){
-      filtered = filtered.filter(flag => flag.flag.includes(filterFlag))
-    }
-    if (filterStatus != "All"){
-      filtered = filtered.filter(flag => flag.status == filterStatus)
-    }
-    if (filterTeam != "All"){
-      filtered = filtered.filter(flag => flag.team_ip == filterTeam)
-    }
-    if (filterExploitName != "All"){
-      filtered = filtered.filter(flag => flag.exploit_name == filterExploitName)
-    }
-    if (filterCheckSystemResponse != ""){
-      filtered = filtered.filter(flag => flag.server_response == filterCheckSystemResponse)
-    }
+    var filtered = data
     if (fromDateTime != ""){
       filtered = filtered.filter(flag => flag.time >= fromDateTime )
     }
     if(toDateTime != ""){
       filtered = filtered.filter(flag => flag.time <= toDateTime)
     }
-
     
-    setFilteredFlags(filtered);
-    setCurrentPage(1)
+    setFilteredFlags(filtered.map(flag => {
+      var f = {...flag}
+      f.id = data.indexOf(flag)
+      return f
+    }))
     closeModal(); // Close the modal after filtering
   };
-  // Calculate the start and end index of the current page
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const endIndex = startIndex + PAGE_SIZE;
-
-  const visibleFlags = filteredFlags.slice(startIndex, endIndex);
-
-  const totalPages = Math.ceil(filteredFlags.length / PAGE_SIZE);
 
   return (
+    
     <div>
       <h1>Flag Table</h1>
       <Button onClick={openModal}>Filter Flags</Button>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Flag</th>
-            <th>Status</th>
-            <th>Server Response</th>
-            <th>Exploit Name</th>
-            <th>Time</th>
-            <th>Team ip</th>
-            <th>Username</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleFlags.map(flag => (
-            <tr key={flag.flag}>
-              <td>{flag.flag}</td>
-              <td>{flag.status}</td>
-              <td>{flag.server_response}</td>
-              <td>{flag.exploit_name}</td>
-              <td>{flag.time}</td>
-              <td>{flag.team_ip}</td>
-              <td>{flag.username}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div>
-        {Array.from({ length: totalPages }, (_, index) => (
-          <Button
-            key={index + 1}
-            onClick={() => setCurrentPage(index + 1)}
-            style={{ fontWeight: currentPage === index + 1 ? 'bold' : 'normal' }}
-          >
-            {index + 1}
-          </Button>
-        ))}
-      </div>
+      <DataGrid
+        rows={filteredFlags}
+        columns={columns}
+        initialState={{
+          pagination: {
+            paginationModel: { page: 0, pageSize: 50 },
+          },
+        }}
+        pageSizeOptions={[50, 100]}
+      />
 
       <Modal isOpen={isModalOpen} onRequestClose={closeModal} >
         <div className='modal_content'>
-          <label for="exploitSelect">Select an exploit:</label>
-          <select id="exploitSelect" onChange={(e=>setFilterExploitName(e.target.value))}>
-              <option value="All">All</option>
-              {visibleFlags.map((flag)=>flag.exploit_name).filter((value, index, self) => self.indexOf(value) === index).map((exploit_name)=>(
-                <option value={exploit_name}>{exploit_name}</option>
-            ))}
-          </select>
-          <label for="teamSelect">Select a team:</label>
-          <select id="teamSelect" onChange={(e=>setFilterTeam(e.target.value))}>
-              <option value="All">All</option>
-              {visibleFlags.map((flag)=>flag.team_ip).filter((value, index, self) => self.indexOf(value) === index).map((team_ip)=>(
-                <option value={team_ip}>{team_ip}</option>
-            ))}
-          </select>
-          <label for="responseSelect">Select a response:</label>
-          <select id="responseSelect" onChange={(e=>setFilterCheckSystemResponse(e.target.value))}>
-              <option value=""></option>
-              {visibleFlags.map((flag)=>flag.server_response).filter((value, index, self) => self.indexOf(value) === index).map((server_response)=>(
-                <option value={server_response}>{server_response}</option>
-            ))}
-          </select>
-          <label for="statusSelect">Select a status:</label>
-          <select id="statusSelect" onChange={(e=>setFilterStatus(e.target.value))}>
-              <option value="All">All</option>
-              {visibleFlags.map((flag)=>flag.status).filter((value, index, self) => self.indexOf(value) === index).map((status)=>(
-                <option value={status}>{status}</option>
-            ))}
-          </select>
           <label for="fromDateTime">Select flags from:</label>
           <div className="date-time-picker-component">
             <DateTimePicker selectedDateTime={fromDateTime} setSelectedDateTime={setFromDateTime}/>
@@ -160,25 +84,8 @@ const FlagTableComponent = ({ data }) => {
           <div className="date-time-picker-component">
             <DateTimePicker selectedDateTime={toDateTime} setSelectedDateTime={setToDateTime}/>
           </div>
-      
-          <label for="flag_filter">Enter the flag you want to search for:</label>
-          <Input
-            id="flag_filter"
-            type="text"
-            placeholder="Flag sustring"
-            value={filterFlag}
-            onChange={e => setFilterFlag(e.target.value)}
-          />
-          <label for="username_filter">Enter the username you want to filter:</label>
-          <input
-            id="username_filter"
-            type="text"
-            placeholder="Filter by username"
-            value={filterUsername}
-            onChange={e => setFilterUsername(e.target.value)}
-          />
-          <button onClick={handleFilter}>Apply Filter</button>
-          <button onClick={closeModal}>Close</button>
+          <Button onClick={handleFilter}>Apply Filter</Button>
+          <Button onClick={closeModal}>Close</Button>
         </div>
       </Modal>
     </div>

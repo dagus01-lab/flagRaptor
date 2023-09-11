@@ -16,7 +16,7 @@ import (
 func verifyAuthentication(r *http.Request) (string, bool, bool) {
 	authToken := r.Header.Get("X-Auth-Token")
 
-	if authToken == cfg.APIToken {
+	if authToken == cfg.ServerConf.APIToken {
 		//fmt.Println("Authorization successful!")
 		user, ok := getAuthenticatedUsername(r)
 		if !ok {
@@ -40,7 +40,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		if cfg.AuthEnable {
+		if cfg.AuthConf.AuthEnable {
 			rows, err := db.Query("SELECT * FROM users WHERE username=", username, " AND PASSWORD=", password)
 			if err != nil {
 				http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -52,7 +52,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 		} else {
-			if cfg.WebPassword != password {
+			if cfg.AuthConf.WebPassword != password {
 				http.Error(w, "Invalid password", http.StatusUnauthorized)
 				return
 			}
@@ -77,12 +77,12 @@ func getConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	if okToken {
 		config := common.FlagSubmitterConfig{
-			FlagFormat:    cfg.FlagFormat,
-			RoundDuration: cfg.RoundDuration,
-			Teams:         cfg.Teams,
-			NopTeam:       cfg.NopTeam,
-			FlagidUrl:     cfg.FlagIDUrl,
-			ClientPort:    cfg.ClientPort,
+			FlagFormat:    cfg.GameConf.FlagFormat,
+			RoundDuration: cfg.GameConf.RoundDuration,
+			Teams:         cfg.GameConf.Teams,
+			NopTeam:       cfg.GameConf.NopTeam,
+			FlagidUrl:     cfg.GameConf.FlagIDUrl,
+			ClientPort:    cfg.ServerConf.ClientPort,
 		}
 
 		jsonData, err := json.Marshal(config)
@@ -120,19 +120,24 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 				ExploitName:    item.ExploitName,
 				TeamIp:         item.TeamIp,
 				Time:           item.Time,
-				Status:         cfg.DBNSUB,
-				ServerResponse: cfg.DBNSUB,
+				Status:         cfg.SubmissionConf.DBNSUB,
+				ServerResponse: cfg.SubmissionConf.DBNSUB,
 			}
 
 			rows = append(rows, flag)
 		}
-
+		if len(rows) == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Data received"))
+			return
+		}
 		var exploits *map[string]bool
 		//update the scriptRunners status
 		scriptRunnersLock.Lock()
 		userFound := false
 		remoteAddr := strings.Split(r.RemoteAddr, ":")
-		clientAddress := strings.Join(remoteAddr[:len(remoteAddr)-1], ":") + ":" + strconv.Itoa(cfg.ClientPort)
+		clientAddress := strings.Join(remoteAddr[:len(remoteAddr)-1], ":") + ":" + strconv.Itoa(cfg.ServerConf.ClientPort)
 		for _, scriptRunner := range scriptRunners {
 			if scriptRunner.user == rows[0].Username {
 				addressFound := false
@@ -204,7 +209,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				query += " (" + "\"" + row.Flag + "\",\"" + row.Username + "\",\"" + row.ExploitName + "\",\"" + row.TeamIp + "\",\"" + row.Time + "\",\"" + cfg.DBNSUB + "\", \"" + cfg.DBNSUB + "\") "
+				query += " (" + "\"" + row.Flag + "\",\"" + row.Username + "\",\"" + row.ExploitName + "\",\"" + row.TeamIp + "\",\"" + row.Time + "\",\"" + cfg.SubmissionConf.DBNSUB + "\", \"" + cfg.SubmissionConf.DBNSUB + "\") "
 				if i != len(rows)-1 {
 					query += ","
 				}
@@ -334,6 +339,7 @@ func restartExploitHandler(w http.ResponseWriter, r *http.Request) {
 				isExecuting, found_exec_status := scriptRunner.exploits[exploit]
 				if found_exec_status && !isExecuting {
 					scriptRunner.exploits[exploit] = true
+					removeStoppedExploit(user, exploit)
 					found = true
 				} else {
 					found = false
@@ -374,6 +380,7 @@ func stopExploitHandler(w http.ResponseWriter, r *http.Request) {
 				isExecuting, found_exec_status := scriptRunner.exploits[exploit]
 				if found_exec_status && isExecuting {
 					scriptRunner.exploits[exploit] = false
+					addStoppedExploit(user, exploit)
 					found = true
 				} else {
 					found = false

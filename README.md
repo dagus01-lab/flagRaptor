@@ -19,39 +19,61 @@ git clone https://github.com/dagus01-lab/flagSubmitter.git
 ```
 Then, you should install all the required dependencies for the go web application
 ```
+cd ./flagSubmitter
 go mod download
 ```
 Finally, you should install all the required dependencies to run the frontend 
 ```
-cd flagSubmitter/server/frontend
+cd ./server/frontend
 npm install
 npx webpack --config webpack.config.js
 ```
 ### Configuration
 It is possible to give the flagSubmitter a .yaml file for configuration, and if it is not provided, 
-the file [config.yaml](server/backend/config.yaml) is chosen. These are the main parameters that can be specified:
+the file [config.yaml](server/backend/config.yaml) is chosen. The configuration file should have this structure:
 
-- `webPassword`: the password to access the web interface
-- `apiToken`: token used for communication between clients and server
-- `flagFormat`: string containing the regex format of the flags
-- `teamIP`: the ip address of your team
-- `teamFormat`: the ip addresses of the teams in the competition, expressed with a wildcard
-- `roundDuration`: the duration of a round (or *tick*) in seconds
-- `subProtocol`: gameserver submission protocol. Valid values are `dummy` (will only print flags on stdout) and `ccit`
-- `subLimit`: number of flags that can be sent to the organizers' server each `subInterval`
-- `subInterval`: interval in seconds for the submission; if the submission round takes more than the number of seconds
-                  specified, the background submission loop will not sleep
-- `subUrl`: the url used for the verification of the flags
-- `clientPort`: the port of the clients, through which the server can order them to stop/restart some exploits
+ ```yaml
+ serverConf:
+  sessionLifetime : session-duration # in seconds
+  database : database-instance-file # path to the database instance file
+  clientPort : client-port # the port on which clients listen for exploits to start/stop
+  apiToken : token
+gameConf:
+  numberTeams : number_teams # number of teams
+  teamFormat : team_format # the ip addresses of the teams in the competition, expressed with a wildcard
+  wildcard : wildcard # the wildcard character contained into the teamFormat parameter
+  teamIP : team_ip # the ip address of your team
+  teamToken : team_token # token associated to your team
+  nopTeam : nop_team_ip
+  roundDuration : round_duration # in seconds
+  flagFormat : flag_format # regex representing the flag format
+  flagIDurl : flagIDurl # flag ids endpoint. Leave blank if none
+  flagAlive : flag_alive # number of rounds afte which a flag is considered to be old
+submissionConf:
+  subProtocol : submission_protocol # gameserver submission protocol. For the time being, it can be "ccit" or "dummy"
+  subLimit : submission_limit # maximum number of submissions per round
+  subInterval : submission_interval # minimum interval of time after which the server must perform a new flag submission to the database
+  subPayloadSize : submission_payload_size # maximum size of submission payload
+  subUrl : submission_url # the url to the flag checksystem
+  dbnsub : db_nsub # string representing flags that have not been submitted yet within the local database
+  dbsub : db_sub # string representing flags that have been submitted within the local database
+  dbsucc : db_succ # string representing correct flags within the local database
+  dberr : db_err # string representing incorrect flags within the local database
+  dbexp : db_exp # string representing expired flags within the local database
+authConf:
+  webPassword : password # password that is asked on login in case authentication is not enabled
+  authEnable: boolean # determines whether authentication is enabled or not
+  users: [{"username", "password"},...] # a list of users in case authentication is enabled
+ ```
 
 ### Usage
 The backend needs to be compiled before execution
 ```
-cd backend -f CONF_FILE
+cd backend
 go build
-./backend
+./backend -f CONF_FILE
 ```
-The web interface can be accessed on port 5000. To log in, use any username and the password you set.
+The web interface can be accessed by default on port 5000. To log in, use any username and the password you set.
 
 In case of wrong credentials users will be notified and asked to enter the correct username and password
 
@@ -70,9 +92,9 @@ Moreover the client listens on a specific port, in order to allow the server to 
 exploits that are in the specified directory
 
 ## Screenshots
-![Connection Content](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/home.png)
-![Connection Content](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/explore.png)
-![Connection Content](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/submit.png)
+![Web interface](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/home.png)
+![Web interface](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/explore.png)
+![Web interface](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/submit.png)
 
 ### REMEMBER
 

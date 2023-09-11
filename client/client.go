@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"myflagsubmitter/common"
 	"net/http"
 	"os"
@@ -42,10 +43,13 @@ func hasShebang(file string) (bool, error) {
 	}
 	return string(firstTwoBytes) == "#!", nil
 }
-func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration int, server_url string, token string, flag_format string, user string) {
+
+func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration time.Duration, server_url string, token string, flag_format string, user string) {
 	defer wg.Done()
 
 	//execute the exploit
+	timeout := time.After(round_duration)
+	done := make(chan error)
 
 	cmd := exec.Command(script, team)
 	stdout, err := cmd.StdoutPipe()
@@ -54,7 +58,28 @@ func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration 
 		return
 	}
 
-	err = cmd.Start()
+	go func() {
+		err := cmd.Start()
+		done <- err
+	}()
+	go func() {
+		select {
+		case err := <-done:
+			if err != nil {
+				log.Printf("Script execution failed: %v\n", err)
+			} else {
+				log.Println("Script ", script, "executed successfully.")
+			}
+		case <-timeout:
+			// Kill the process if it's still running after the timeout.
+			err := cmd.Process.Kill()
+			if err != nil {
+				log.Printf("Failed to kill the process: %v\n", err)
+			}
+			log.Println("Script execution timed out")
+		}
+	}()
+
 	if err != nil {
 		fmt.Println("Error launching the exploit:", err)
 		return
@@ -71,19 +96,18 @@ func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration 
 	}
 	for scanner.Scan() {
 		line := scanner.Text()
-		//fmt.Println("Line from script ", script, ":", line)
 		line = strings.TrimSpace(line)
-		if line == "" { //&& !cmd.ProcessState.Exited() {
-			fmt.Println("Empty line received from", script)
+		if line == "" {
+			log.Println("Empty line received from", script)
 			break
-		} else { //if line != "" {
+		} else {
 
 			flags := regexp.MustCompile(flag_format).FindAllString(line, -1)
 
 			if len(flags) == 0 {
 				continue
 			}
-			fmt.Println(script, "@", team, ": Got", len(flags), "flags with", script, "from", team, ":", flags)
+			log.Println(script, "@", team, ": Got", len(flags), "flags with", script, "from", team, ":", flags)
 			timestamp := time.Now().Format("2006-01-02 15:04:05")
 			for _, flag := range flags {
 				request_body.Flags = append(request_body.Flags, common.Flag{
@@ -98,26 +122,26 @@ func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration 
 
 	json_data, err := json.Marshal(request_body)
 	if err != nil {
-		fmt.Println("Error in parsing json request:", err)
+		log.Println("Error in parsing json request:", err)
 		return
 	}
 
 	req, err := http.NewRequest("POST", server_url+"/upload_flags", bytes.NewBufferString(string(json_data)))
 	if err != nil {
-		fmt.Println("Error creating GET request:", err)
+		log.Println("Error creating GET request:", err)
 		return
 	}
 	req.Header.Set("X-Auth-Token", token)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("Error sending GET request:", err)
+		log.Println("Error sending GET request:", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Received non-ok status code:", resp.StatusCode)
+		log.Println("Received non-ok status code:", resp.StatusCode)
 		return
 	}
 }
@@ -129,7 +153,7 @@ func handleStartProcess(w http.ResponseWriter, r *http.Request) {
 	scriptName := r.FormValue("name")
 	executableScripts[scriptName] = true
 
-	fmt.Println("Script" + scriptName + "ready to be started again")
+	log.Println("Script" + scriptName + "ready to be started again")
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -143,13 +167,13 @@ func handleStopProcess(w http.ResponseWriter, r *http.Request) {
 	if found {
 		err := cmd.Process.Kill()
 		if err != nil {
-			fmt.Println("Error on killing process associated to", scriptName)
+			log.Println("Error on killing process associated to", scriptName)
 		}
 		delete(executingProcesses, scriptName)
 	}
 	if executableScripts[scriptName] {
 		executableScripts[scriptName] = false
-		fmt.Println("Script", scriptName, "stopped")
+		log.Println("Script", scriptName, "stopped")
 	}
 	w.WriteHeader(http.StatusAccepted)
 
@@ -167,7 +191,7 @@ func main() {
 	user := flag.String("u", "", "user")
 	token := flag.String("t", "", "token")
 	exploit_dir := flag.String("d", "exploits", "exploit directory")
-	num_threads := flag.Int("n", 64, "maximum number of threads")
+	num_threads := flag.Int("n", 128, "maximum number of threads")
 	//parse the command line flags
 	flag.Parse()
 	//check if the required flags are provided
@@ -235,9 +259,10 @@ func main() {
 		var wg sync.WaitGroup
 		for _, script := range scripts {
 			for _, team := range server_conf.Teams {
-				fmt.Println("Started running exploit ", script, "on team", team)
+				log.Println("Started running exploit ", script, "on team", team)
 				wg.Add(1)
 				go run_exploit(&wg, script, team, server_conf.RoundDuration, *server_url, *token, server_conf.FlagFormat, *user)
+
 				i++
 				if i > *num_threads {
 					terminate = true

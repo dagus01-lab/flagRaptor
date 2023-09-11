@@ -59,6 +59,10 @@ const Home = ({handleLogoutFunction, username}) => {
     };
   }, []); //the empty array ensures that the function is executed only when the component is loaded
 
+  useEffect(() => {
+    updateBarChartData();
+  },[flagsData]); //automatically update barchart data when new flags are received
+
   const updateBarChartData = () => {
     //alert("Flags: "+ JSON.stringify(flagsData))
     // Process the flags data to generate the chart datasets
@@ -114,16 +118,19 @@ const Home = ({handleLogoutFunction, username}) => {
       const jsonObject = JSON.parse(jsonString);
       console.log(jsonObject);
 
-      jsonObject.forEach((flag)=>{
-        if(flagsData.map((f) => f.flag).includes(flag.flag)){
-          setFlagsData(flagsData.filter((f) => f.flag === flag.flag).forEach((f) => {f.server_response = flag.server_response; f.status = flag.status;}))
-        }
-        else{
-          flagsData.push(flag)
-        }
-      })
-      if(status === "home")
-        updateBarChartData(); // Update the chart data with the updated flags data
+      setFlagsData(prevFlagsData => {
+        return [...prevFlagsData,...jsonObject.map(flag => {
+          const existingFlag = prevFlagsData.find(f => f.flag === flag.flag);
+      
+          if (existingFlag) {
+            // Update the existing flag
+            return { ...existingFlag, server_response: flag.server_response, status: flag.status };
+          } else {
+            // Add a new flag to the array
+            return flag;
+          }
+        })];
+      });
     } catch (error) {
       console.error('Error parsing JSON:', error.message);
     }
