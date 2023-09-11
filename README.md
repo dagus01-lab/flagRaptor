@@ -37,14 +37,14 @@ the file [config.yaml](server/backend/config.yaml) is chosen. The configuration 
   sessionLifetime : session-duration # in seconds
   database : database-instance-file # path to the database instance file
   clientPort : client-port # the port on which clients listen for exploits to start/stop
-  apiToken : token
+  apiToken : token # token used for communication between clients and server
 gameConf:
   numberTeams : number_teams # number of teams
   teamFormat : team_format # the ip addresses of the teams in the competition, expressed with a wildcard
   wildcard : wildcard # the wildcard character contained into the teamFormat parameter
   teamIP : team_ip # the ip address of your team
   teamToken : team_token # token associated to your team
-  nopTeam : nop_team_ip
+  nopTeam : nop_team_ip # ip address of the nop team
   roundDuration : round_duration # in seconds
   flagFormat : flag_format # regex representing the flag format
   flagIDurl : flagIDurl # flag ids endpoint. Leave blank if none
