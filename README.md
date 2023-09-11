@@ -92,9 +92,9 @@ Moreover the client listens on a specific port, in order to allow the server to 
 exploits that are in the specified directory
 
 ## Screenshots
-![Web interface](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/home.png)
-![Web interface](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/explore.png)
-![Web interface](https://github.com/dagus01-lab/flagSubmitter/tree/main/server/frontend/screenshots/submit.png)
+![Web interface](server/frontend/screenshots/home.png)
+![Web interface](server/frontend/screenshots/explore.png)
+![Web interface](server/frontend/screenshots/submit.png)
 
 ### REMEMBER
 
