@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"myflagsubmitter/common"
 	"sync"
 
@@ -9,14 +9,14 @@ import (
 )
 
 func updateNewFlags(flags []common.Flag) {
-	//fmt.Println("Updating websocket clients with flags:", flags)
+	//log.Println("Updating websocket clients with flags:", flags)
 	var wg sync.WaitGroup
 	for _, client := range clients {
 		wg.Add(1)
 		go updateClient(&wg, client.connection, flags)
 	}
 	wg.Wait()
-	//fmt.Println("Update done")
+	//log.Println("Update done")
 }
 
 func updateClient(wg *sync.WaitGroup, client *websocket.Conn, msg []common.Flag) {
@@ -34,8 +34,8 @@ func updateClient(wg *sync.WaitGroup, client *websocket.Conn, msg []common.Flag)
 		}
 		err := client.WriteJSON(msg[lower_bound:upper_bound])
 		if err != nil {
-			fmt.Println("Error sending message:", err)
-			fmt.Println("Closing connection with the websocket client", client.RemoteAddr().String(), "...")
+			log.Println("Error sending message:", err)
+			log.Println("Closing connection with the websocket client", client.RemoteAddr().String(), "...")
 			client.Close()
 
 			webSocketClientsLock.Lock()

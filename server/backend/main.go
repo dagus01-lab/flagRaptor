@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"flag"
-	"fmt"
 	"log"
 	"myflagsubmitter/common"
 	"net/http"
@@ -25,10 +24,11 @@ var dbLock sync.Mutex
 
 func main() {
 	fileName := flag.String("f", "config.yaml", "configuration file name")
+	flag.Parse()
 
 	cfg, err := NewConfig(*fileName)
 	if err != nil {
-		fmt.Println("Error on reading configuration from file")
+		log.Println("Error on reading configuration from file")
 	}
 
 	// Initialize the SQLite database
@@ -59,7 +59,6 @@ func main() {
 	appRouter.HandleFunc("/stop_exploit", stopExploitHandler).Methods("GET", "POST")
 	appRouter.HandleFunc("/get_stopped_exploits", getStoppedExploitsHandler).Methods("GET", "POST")
 	appRouter.PathPrefix("/").Handler(http.FileServer(http.Dir("../frontend/dist")))
-	//http.Handle("/", apiRouter)
 
 	go submission_loop(&cfg)
 	log.Println("Server listening on port 5000")
@@ -67,7 +66,7 @@ func main() {
 }
 
 func initDatabase() *sql.DB {
-	db, err := sql.Open("sqlite3", "instances/database.db")
+	db, err := sql.Open("sqlite3", cfg.ServerConf.DataBase)
 	if err != nil {
 		log.Fatal(err)
 	}

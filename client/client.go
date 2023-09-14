@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"myflagsubmitter/common"
 	"net/http"
@@ -54,7 +53,7 @@ func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration 
 	cmd := exec.Command(script, team)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println("Error creating stdout pipe:", err)
+		log.Println("Error creating stdout pipe:", err)
 		return
 	}
 
@@ -81,7 +80,7 @@ func run_exploit(wg *sync.WaitGroup, script string, team string, round_duration 
 	}()
 
 	if err != nil {
-		fmt.Println("Error launching the exploit:", err)
+		log.Println("Error launching the exploit:", err)
 		return
 	}
 
@@ -203,20 +202,20 @@ func main() {
 	//retrieve configuration from server
 	req, err := http.NewRequest("GET", *server_url+"/get_config", nil)
 	if err != nil {
-		fmt.Println("Error creating GET request:", err)
+		log.Println("Error creating GET request:", err)
 		return
 	}
 	req.Header.Set("X-Auth-Token", *token)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("Error sending GET request:", err)
+		log.Println("Error sending GET request:", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Received non-ok status code:", resp.StatusCode)
+		log.Println("Received non-ok status code:", resp.StatusCode)
 		return
 	}
 
@@ -224,11 +223,11 @@ func main() {
 	var server_conf common.FlagSubmitterConfig
 	err = json.NewDecoder(resp.Body).Decode(&server_conf)
 	if err != nil {
-		fmt.Println("Error decoding response body:", err)
+		log.Println("Error decoding response body:", err)
 		return
 	}
 
-	fmt.Println("Got this configuration from server: round duration=", server_conf.RoundDuration, ", teams:", server_conf.Teams, ", nop team:", server_conf.NopTeam, ", flag submitter server url:", server_conf.FlagidUrl, ", flag format:", server_conf.FlagFormat, ", client port:", server_conf.ClientPort)
+	log.Println("Got this configuration from server: round duration=", server_conf.RoundDuration, ", teams:", server_conf.Teams, ", nop team:", server_conf.NopTeam, ", flag submitter server url:", server_conf.FlagidUrl, ", flag format:", server_conf.FlagFormat, ", client port:", server_conf.ClientPort)
 
 	//start the exploitsControl routine
 	go exploitsControl(server_conf.ClientPort)
@@ -246,7 +245,7 @@ func main() {
 				scripts = append(scripts, path)
 			}
 		} else {
-			fmt.Println("Script", path, "is not executable")
+			log.Println("Script", path, "is not executable")
 		}
 		return nil
 	})
@@ -287,7 +286,7 @@ func main() {
 					scripts = append(scripts, path)
 				}
 			} else {
-				fmt.Println("Script", path, "is not executable")
+				log.Println("Script", path, "is not executable")
 			}
 			return nil
 		})

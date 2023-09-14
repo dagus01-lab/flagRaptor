@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"myflagsubmitter/common"
 	"strings"
 	"sync"
@@ -84,7 +84,7 @@ func findFlagsByNames(flags []string) ([]common.Flag, error) {
 	rows, err := db.Query(query)
 	dbLock.Unlock()
 	if err != nil {
-		fmt.Println("Error executing query ", query, ": ", err)
+		log.Println("Error executing query ", query, ": ", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -94,7 +94,7 @@ func findFlagsByNames(flags []string) ([]common.Flag, error) {
 		var flag common.Flag
 		err := rows.Scan(&flag.Flag, &flag.Username, &flag.ExploitName, &flag.TeamIp, &flag.Time, &flag.Status, &flag.ServerResponse)
 		if err != nil {
-			fmt.Println("Error scanning row: ", err)
+			log.Println("Error scanning row: ", err)
 			return nil, err
 		}
 		result = append(result, flag)
@@ -110,7 +110,7 @@ func get_flags_before(lastMinutes int) ([]common.Flag, error) {
 	rows, err := db.Query(query)
 	dbLock.Unlock()
 	if err != nil {
-		fmt.Println("Error executing query: ", err)
+		log.Println("Error executing query: ", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -120,7 +120,7 @@ func get_flags_before(lastMinutes int) ([]common.Flag, error) {
 		var flag common.Flag
 		err := rows.Scan(&flag.Flag, &flag.Username, &flag.ExploitName, &flag.TeamIp, &flag.Time, &flag.Status, &flag.ServerResponse)
 		if err != nil {
-			fmt.Println("Error scanning row: ", err)
+			log.Println("Error scanning row: ", err)
 			return nil, err
 		}
 		result = append(result, flag)
@@ -135,7 +135,7 @@ func find_flags_by_username(username string) ([]common.Flag, error) {
 	rows, err := db.Query(query)
 	dbLock.Unlock()
 	if err != nil {
-		fmt.Println("Error executing query: ", err)
+		log.Println("Error executing query: ", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -145,7 +145,7 @@ func find_flags_by_username(username string) ([]common.Flag, error) {
 		var flag common.Flag
 		err := rows.Scan(&flag.Flag, &flag.Username, &flag.ExploitName, &flag.TeamIp, &flag.Time, &flag.Status, &flag.ServerResponse)
 		if err != nil {
-			fmt.Println("Error scanning row: ", err)
+			log.Println("Error scanning row: ", err)
 			return nil, err
 		}
 		result = append(result, flag)
@@ -172,7 +172,7 @@ func getFlagsToCheck(expiration_time string) ([]string, error) {
 		var flag string
 		err := rows.Scan(&flag)
 		if err != nil {
-			fmt.Println("Error scanning row: ", err)
+			log.Println("Error scanning row: ", err)
 			break
 		}
 		flags = append(flags, flag)
@@ -196,9 +196,9 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error in updating flags: ", err)
+			log.Println("Error in updating flags: ", err)
 		} else {
-			//fmt.Println("Flag", item.Flag, "invalid")
+			//log.Println("Flag", item.Flag, "invalid")
 			resultLock.Lock()
 			*invalid += 1
 			resultLock.Unlock()
@@ -209,9 +209,9 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error in updating flags: ", err)
+			log.Println("Error in updating flags: ", err)
 		} else {
-			//fmt.Println("Flag", item.Flag, "yours")
+			//log.Println("Flag", item.Flag, "yours")
 			resultLock.Lock()
 			*yours += 1
 			resultLock.Unlock()
@@ -221,9 +221,9 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBERR, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error in updating flags: ", err)
+			log.Println("Error in updating flags: ", err)
 		} else {
-			//fmt.Println("Flag", item.Flag, "of nop team")
+			//log.Println("Flag", item.Flag, "of nop team")
 			resultLock.Lock()
 			*nop += 1
 			resultLock.Unlock()
@@ -233,9 +233,9 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBEXP, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error in updating flags: ", err)
+			log.Println("Error in updating flags: ", err)
 		} else {
-			//fmt.Println("Flag", item.Flag, "old")
+			//log.Println("Flag", item.Flag, "old")
 			resultLock.Lock()
 			*old += 1
 			resultLock.Unlock()
@@ -246,9 +246,9 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBSUCC, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error in updating flags: ", err)
+			log.Println("Error in updating flags: ", err)
 		} else {
-			//fmt.Println("Flag", item.Flag, "accepted")
+			//log.Println("Flag", item.Flag, "accepted")
 			resultLock.Lock()
 			*accepted += 1
 			resultLock.Unlock()
@@ -258,15 +258,15 @@ func updateUploadedFlagsToDB(wg *sync.WaitGroup, accepted *int, old *int, nop *i
 		_, err := db.Exec(query, cfg.SubmissionConf.DBSUB, cfg.SubmissionConf.DBSUCC, item.Flag)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error in updating flags: ", err)
+			log.Println("Error in updating flags: ", err)
 		} else {
-			//fmt.Println("Flag", item.Flag, "is not available")
+			//log.Println("Flag", item.Flag, "is not available")
 			resultLock.Lock()
 			*not_available += 1
 			resultLock.Unlock()
 		}
 	} else {
-		fmt.Println("Unknown message received for flag ", item.Flag, ": ", item.Message)
+		log.Println("Unknown message received for flag ", item.Flag, ": ", item.Message)
 	}
 }
 
@@ -289,7 +289,7 @@ func get_stopped_exploits() ([]ScriptRunner, error) {
 		}
 		err := rows.Scan(&exploit)
 		if err != nil {
-			fmt.Println("Error scanning row: ", err)
+			log.Println("Error scanning row: ", err)
 			break
 		}
 		found := false

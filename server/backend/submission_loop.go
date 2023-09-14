@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"myflagsubmitter/common"
 	"sync"
@@ -28,7 +27,7 @@ func getExpiredFlags(expiration_time string) ([]common.Flag, error) {
 		}
 		flag.Status = cfg.SubmissionConf.DBEXP
 		expired_flags = append(expired_flags, flag)
-		//fmt.Println("Received flag:", flag)
+		//log.Println("Received flag:", flag)
 	}
 	return expired_flags, nil
 }
@@ -38,7 +37,7 @@ var cfg Config
 func submission_loop(config *Config) {
 	cfg = *config
 	//logica per scegliere il submitter protocol giusto
-	submitterFormat, submitter := GetAppSubmitter()
+	submitter := GetAppSubmitter()
 	if submitter == nil {
 		log.Println("Invalid format for flag submission")
 		return
@@ -71,7 +70,7 @@ func submission_loop(config *Config) {
 
 		for i < max_sub {
 			log.Println("Submitting flags to checker server...")
-			result := submitter(flags)
+			result := submitter.Submit(flags)
 			if result == nil {
 				log.Println("Error in flag checker server response!")
 				time.Sleep(cfg.SubmissionConf.SubInterval)
@@ -89,28 +88,28 @@ func submission_loop(config *Config) {
 			var wg sync.WaitGroup
 			for _, item := range result {
 				wg.Add(1)
-				go updateUploadedFlagsToDB(&wg, &accepted, &old, &nop, &yours, &invalid, &not_available, item, submitterFormat, &resultLock)
+				go updateUploadedFlagsToDB(&wg, &accepted, &old, &nop, &yours, &invalid, &not_available, item, submitter.Format, &resultLock)
 				i += 1
 			}
 			wg.Wait()
-			fmt.Println("Submitted ", len(flags), " flags: ", accepted, " accepted,", old, " old,", nop, " nop,", yours, "yours, ", not_available, "not available")
+			log.Println("Submitted ", len(flags), " flags: ", accepted, " accepted,", old, " old,", nop, " nop,", yours, "yours, ", not_available, "not available")
 
 			//update old flags on database
 			err = setOldFlagsAsExpired(expiration_time)
 			if err != nil {
-				fmt.Println("Error in updating old flags: ", err)
+				log.Println("Error in updating old flags: ", err)
 			}
 
 			//retrieve all expired flags from the database
 			expired_flags, err := getExpiredFlags(expiration_time)
 			if err != nil {
-				fmt.Println("Error on getting expired flags: ", err)
+				log.Println("Error on getting expired flags: ", err)
 			}
 
 			//write the updates to all the clients connected to the webapp
 			updated_flags, err := findFlagsByNames(flags)
 			if err != nil {
-				fmt.Println("Error in updating flags to clients: ", err)
+				log.Println("Error in updating flags to clients: ", err)
 			} else {
 				updated_flags = append(updated_flags, expired_flags...)
 				go updateNewFlags(updated_flags)
@@ -118,7 +117,7 @@ func submission_loop(config *Config) {
 
 			duration := time.Now().Sub(s_time)
 			if duration < cfg.SubmissionConf.SubInterval {
-				//fmt.Println("Sleeping for ", time.Duration(SUB_INTERVAL)*time.Second-duration)
+				//log.Println("Sleeping for ", time.Duration(SUB_INTERVAL)*time.Second-duration)
 				time.Sleep(cfg.SubmissionConf.SubInterval - duration)
 			}
 		}

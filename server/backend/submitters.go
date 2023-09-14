@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -15,6 +15,12 @@ type SubmitterFormat struct {
 type ResponseItem struct {
 	Flag    string
 	Message string
+}
+
+type Submitter struct {
+	Type   string
+	Format SubmitterFormat
+	Submit func(flags []string) []ResponseItem
 }
 
 var (
@@ -36,17 +42,27 @@ var (
 		SUB_NOP:           "from NOP team",
 		SUB_NOT_AVAILABLE: "is not available",
 	}
+	submitters = [...]Submitter{
+		{
+			Type:   "dummy",
+			Format: DummySubmitterFormat,
+			Submit: DummySubmitter,
+		},
+		{
+			Type:   "ccit",
+			Format: CCITSubmitterFormat,
+			Submit: CCITSubmitter,
+		},
+	}
 )
 
-func GetAppSubmitter() (SubmitterFormat, func(flags []string) []ResponseItem) {
-	switch cfg.SubmissionConf.SubProtocol {
-	case "ccit":
-		return CCITSubmitterFormat, CCITSubmitter
-	case "dummy":
-		return DummySubmitterFormat, DummySubmitter
-	default:
-		return DummySubmitterFormat, nil
+func GetAppSubmitter() *Submitter {
+	for _, submitter := range submitters {
+		if submitter.Type == cfg.SubmissionConf.SubProtocol {
+			return &submitter
+		}
 	}
+	return nil
 }
 
 func DummySubmitter(flags []string) []ResponseItem {
@@ -65,12 +81,12 @@ func CCITSubmitter(flags []string) []ResponseItem {
 
 	requestBody, err := json.Marshal(flags)
 	if err != nil {
-		fmt.Println("Error marshaling request payload: ", err)
+		log.Println("Error marshaling request payload: ", err)
 		return nil
 	}
 	req, err := http.NewRequest("PUT", cfg.SubmissionConf.SubUrl, bytes.NewBuffer(requestBody))
 	if err != nil {
-		fmt.Println("Error creating PUT request: ", err)
+		log.Println("Error creating PUT request: ", err)
 		return nil
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -79,20 +95,20 @@ func CCITSubmitter(flags []string) []ResponseItem {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error sending PUT request: ", err)
+		log.Println("Error sending PUT request: ", err)
 		return nil
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error unmarshaling response payload: ", err)
+		log.Println("Error unmarshaling response payload: ", err)
 		return nil
 	}
 
 	err = json.Unmarshal(responseBody, &res)
 	if err != nil {
-		fmt.Println("Error unmarshaling response payload: ", err)
+		log.Println("Error unmarshaling response payload: ", err)
 		return nil
 	}
 

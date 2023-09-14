@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"log"
 	"myflagsubmitter/common"
 	"net/http"
 	"strconv"
@@ -17,7 +17,7 @@ func verifyAuthentication(r *http.Request) (string, bool, bool) {
 	authToken := r.Header.Get("X-Auth-Token")
 
 	if authToken == cfg.ServerConf.APIToken {
-		//fmt.Println("Authorization successful!")
+		//log.Println("Authorization successful!")
 		user, ok := getAuthenticatedUsername(r)
 		if !ok {
 			return "", true, false
@@ -25,7 +25,7 @@ func verifyAuthentication(r *http.Request) (string, bool, bool) {
 			return user, true, true
 		}
 	} else {
-		//fmt.Println("Authorization not successful!")
+		//log.Println("Authorization not successful!")
 		user, ok := getAuthenticatedUsername(r)
 		if !ok {
 			return "", false, false
@@ -69,7 +69,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	clearAuthenticatedUsername(r, w)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
+	json.NewEncoder(w).Encode(map[string]string{"message": "Logout successful"})
 }
 
 func getConfigHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func getConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 		jsonData, err := json.Marshal(config)
 		if err != nil {
-			fmt.Println("Error converting to json: ", err)
+			log.Println("Error converting to json: ", err)
 			//come mi comporto se non riesco a mandare il json?
 		}
 
@@ -104,11 +104,11 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 	_, okToken, _ := verifyAuthentication(r)
 
 	if okToken {
-		//fmt.Println("Incoming Request of flags upload")
+		//log.Println("Incoming Request of flags upload")
 		var data common.UploadFlagRequestBody
 		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
-			fmt.Println("Error converting from json: ", err)
+			log.Println("Error converting from json: ", err)
 			return
 		}
 
@@ -155,7 +155,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 							data := []byte(`name=` + exploit)
 							resp, err := http.Post("http://"+clientAddress+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
 							if err != nil {
-								fmt.Println("Error on stopping script", exploit, ", error:", err)
+								log.Println("Error on stopping script", exploit, ", error:", err)
 								return
 							}
 							defer resp.Body.Close()
@@ -177,7 +177,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 					data := []byte(`name=` + exploit)
 					resp, err := http.Post("http://"+clientAddress+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
 					if err != nil {
-						fmt.Println("Error on stopping script", exploit, ", error:", err)
+						log.Println("Error on stopping script", exploit, ", error:", err)
 						return
 					}
 					defer resp.Body.Close()
@@ -202,8 +202,8 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 					data := []byte(`name=` + row.ExploitName)
 					resp, err := http.Post("http://"+clientAddress+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
 					if err != nil {
-						fmt.Println("Error on stopping script", row.ExploitName, ", error:", err)
-						return
+						log.Println("Error on stopping script", row.ExploitName, ", error:", err)
+						continue
 					}
 					defer resp.Body.Close()
 					continue
@@ -215,13 +215,13 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 			}
-			//fmt.Println("Performing query \"" + query + "\" to update flags into database")
+			//log.Println("Performing query \"" + query + "\" to update flags into database")
 			dbLock.Lock()
 			_, err := db.Exec(query)
 			dbLock.Unlock()
 			if err != nil {
 				if i == attempts-1 {
-					fmt.Println("Error in uploading flags on the database: ", err)
+					log.Println("Error in uploading flags on the database: ", err)
 					time.Sleep(5 * time.Second)
 				}
 				time.Sleep(1 * time.Second)
@@ -232,7 +232,7 @@ func uploadFlagsHandler(w http.ResponseWriter, r *http.Request) {
 
 		//write the updates on the broadcast channel of the clients connected to the webapp
 		go updateNewFlags(rows)
-		//fmt.Println("Flags", rows, "correclty inserted into database")
+		//log.Println("Flags", rows, "correclty inserted into database")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Data received"))
@@ -253,7 +253,7 @@ func getFlagsHandler(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.Query(query, user)
 		dbLock.Unlock()
 		if err != nil {
-			fmt.Println("Error while getting flags from the database: ", err)
+			log.Println("Error while getting flags from the database: ", err)
 			return
 		}
 		defer rows.Close()
@@ -262,7 +262,7 @@ func getFlagsHandler(w http.ResponseWriter, r *http.Request) {
 			var flag common.Flag
 			err := rows.Scan(&flag.Flag, &flag.Username, &flag.ExploitName, &flag.TeamIp, &flag.Time, &flag.Status, &flag.ServerResponse)
 			if err != nil {
-				fmt.Println("Error scanning row while reading flags on the database: ", err)
+				log.Println("Error scanning row while reading flags on the database: ", err)
 				return
 			}
 			result = append(result, flag)
@@ -270,7 +270,7 @@ func getFlagsHandler(w http.ResponseWriter, r *http.Request) {
 		//return the result in json format
 		jsonData, err := json.Marshal(result)
 		if err != nil {
-			fmt.Println("Error converting to json: ", err)
+			log.Println("Error converting to json: ", err)
 		}
 
 		//return the data in json format
@@ -302,21 +302,21 @@ func updateFlagsHandler(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		fmt.Println("Error upgrading websocket connection:", err)
+		log.Println("Error upgrading websocket connection:", err)
 		return
 	}
 
 	webSocketClientsLock.Lock()
 	clients = append(clients, WebSocketClient{connection: conn, username: user, lastMinutes: lastMins})
 	webSocketClientsLock.Unlock()
-	fmt.Println("Client connected", conn.RemoteAddr().String())
+	log.Println("Client connected", conn.RemoteAddr().String())
 
 	max_attempts := 5
 	for attempts := max_attempts; attempts > 0; attempts-- {
 		flags, err := get_flags_before(lastMins)
 		if err != nil {
 			if attempts == max_attempts-1 {
-				fmt.Println("Error in updating flags to client:", err)
+				log.Println("Error in updating flags to client:", err)
 			}
 			time.Sleep(1 * time.Second)
 		} else {
@@ -355,7 +355,7 @@ func restartExploitHandler(w http.ResponseWriter, r *http.Request) {
 				data := []byte(`name=` + exploit)
 				resp, err := http.Post("http://"+client+"/start", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
 				if err != nil {
-					fmt.Println("Error:", err)
+					log.Println("Error:", err)
 					return
 				}
 				defer resp.Body.Close()
@@ -388,7 +388,7 @@ func stopExploitHandler(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		fmt.Println("User", user, "wants to stop", exploit, ".Found", clients)
+		log.Println("User", user, "wants to stop", exploit, ".Found", clients)
 		if !found {
 			http.Error(w, "Nonexisting user", http.StatusBadRequest)
 			return
@@ -397,7 +397,7 @@ func stopExploitHandler(w http.ResponseWriter, r *http.Request) {
 				data := []byte(`name=` + exploit)
 				resp, err := http.Post("http://"+client+"/stop", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
 				if err != nil {
-					fmt.Println("Error on stopping script", exploit, ", error:", err)
+					log.Println("Error on stopping script", exploit, ", error:", err)
 					return
 				}
 				defer resp.Body.Close()
@@ -424,7 +424,7 @@ func getStoppedExploitsHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				err := json.NewEncoder(w).Encode(result)
 				if err != nil {
-					fmt.Println("Error converting to json: ", err)
+					log.Println("Error converting to json: ", err)
 				}
 				return
 			}
