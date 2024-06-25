@@ -3,9 +3,10 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
-	"myflagsubmitter/common"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -15,7 +16,6 @@ import (
 
 var webSocketClientsLock sync.Mutex
 var clients = make([]WebSocketClient, 0)
-var broadcast = make(chan []common.Flag)
 var store *sessions.CookieStore
 var scriptRunnersLock sync.Mutex
 var scriptRunners = make([]ScriptRunner, 0)
@@ -30,9 +30,25 @@ func main() {
 	if err != nil {
 		log.Println("Error on reading configuration from file")
 	}
+	fmt.Println(`
+	________ ___       ________  ________                           
+	|\  _____\\  \     |\   __  \|\   ____\                          
+	\ \  \__/\ \  \    \ \  \|\  \ \  \___|                          
+	 \ \   __\\ \  \    \ \   __  \ \  \  ___                        
+	  \ \  \_| \ \  \____\ \  \ \  \ \  \|\  \                       
+	   \ \__\   \ \_______\ \__\ \__\ \_______\                      
+	 ________  __________________|____________________  ________     
+	|\   __  \|\   __  \|\   __  \|\___   ___\\   __  \|\   __  \    
+	\ \  \|\  \ \  \|\  \ \  \|\  \|___ \  \_\ \  \|\  \ \  \|\  \   
+	 \ \   _  _\ \   __  \ \   ____\   \ \  \ \ \  \\\  \ \   _  _\  
+	  \ \  \\  \\ \  \ \  \ \  \___|    \ \  \ \ \  \\\  \ \  \\  \| 
+	   \ \__\\ _\\ \__\ \__\ \__\        \ \__\ \ \_______\ \__\\ _\ 
+	    \|__|\|__|\|__|\|__|\|__|         \|__|  \|_______|\|__|\|__|
+
+	`)
 
 	// Initialize the SQLite database
-	db = initDatabase()
+	db = initDatabase(cfg.ServerConf.DataBase)
 	err = createTables()
 	if err != nil {
 		log.Fatal("Error on creating tables:", err)
@@ -50,6 +66,7 @@ func main() {
 	//set up a router for API
 	appRouter := mux.NewRouter()
 	appRouter.HandleFunc("/login", loginHandler).Methods("GET", "POST")
+	appRouter.HandleFunc("/check_auth", checkAuthHandler).Methods("GET", "POST")
 	appRouter.HandleFunc("/logout", logoutHandler).Methods("GET", "POST")
 	appRouter.HandleFunc("/get_config", getConfigHandler).Methods("GET", "POST")
 	appRouter.HandleFunc("/upload_flags", uploadFlagsHandler).Methods("GET", "POST")
@@ -61,14 +78,7 @@ func main() {
 	appRouter.PathPrefix("/").Handler(http.FileServer(http.Dir("../frontend/dist")))
 
 	go submission_loop(&cfg)
-	log.Println("Server listening on port 5000")
-	http.ListenAndServe(":5000", appRouter)
-}
-
-func initDatabase() *sql.DB {
-	db, err := sql.Open("sqlite3", cfg.ServerConf.DataBase)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return db
+	log.Println("Server listening on port ", cfg.ServerConf.ClientPort)
+	addr := ":" + strconv.Itoa(cfg.ServerConf.ClientPort)
+	http.ListenAndServe(addr, appRouter)
 }

@@ -5,7 +5,7 @@ import FlagSubmissionComponent from "./FlagSubmissionComponent";
 import MenuComponent from "./MenuComponent"
 import ScriptRunnerControlButton from "./ScriptRunnerControlButton";
 
-const Home = ({handleLogoutFunction, username}) => {
+const Home = ({handleLogoutFunction, username, token}) => {
   const [status, setStatus] = useState("home");
   const [flagsData, setFlagsData] = useState([]);
   const [personalExploitsdata, setPersonalExploitsData] = useState({
@@ -28,7 +28,7 @@ const Home = ({handleLogoutFunction, username}) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Auth-Token': 'token', // Add the custom header "X-Auth-Token" with your token
+        'X-Auth-Token': token, 
       },
     })
       .then((response)=>{
@@ -48,7 +48,7 @@ const Home = ({handleLogoutFunction, username}) => {
         console.error('Error getting stopped exploits:', error);
       });
 
-    const socket = new WebSocket('ws://localhost:5000/update_flags');
+    const socket = new WebSocket('ws://localhost:5050/update_flags');
     // Listen for real-time updates from the server
     socket.onmessage = (event) => {
      handleFlagUpdate(event.data); // Handle the real-time flag update
@@ -64,8 +64,6 @@ const Home = ({handleLogoutFunction, username}) => {
   },[flagsData]); //automatically update barchart data when new flags are received
 
   const updateBarChartData = () => {
-    //alert("Flags: "+ JSON.stringify(flagsData))
-    // Process the flags data to generate the chart datasets
     const personalExploits = [...new Set(flagsData.filter((flag) => flag.username == username).map((flag) => flag.exploit_name))];
     const teamExploits = [...new Set(flagsData.map((flag) => flag.exploit_name))];
     const teams = [...new Set(flagsData.map((flag) => flag.team_ip))];
@@ -118,18 +116,18 @@ const Home = ({handleLogoutFunction, username}) => {
       const jsonObject = JSON.parse(jsonString);
       console.log(jsonObject);
 
-      setFlagsData(prevFlagsData => {
-        return [...prevFlagsData,...jsonObject.map(flag => {
-          const existingFlag = prevFlagsData.find(f => f.flag === flag.flag);
-      
-          if (existingFlag) {
-            // Update the existing flag
-            return { ...existingFlag, server_response: flag.server_response, status: flag.status };
-          } else {
-            // Add a new flag to the array
-            return flag;
-          }
-        })];
+      setFlagsData((prevFlagsData) => {
+      const flagMap = new Map(prevFlagsData.map(flag => [flag.flag, flag]));
+
+      jsonObject.forEach(flag => {
+        if (flagMap.has(flag.flag)) {
+          const existingFlag = flagMap.get(flag.flag);
+          flagMap.set(flag.flag, { ...existingFlag, ...flag });
+        } else {
+          flagMap.set(flag.flag, flag);
+        }
+      });
+      return Array.from(flagMap.values());
       });
     } catch (error) {
       console.error('Error parsing JSON:', error.message);
@@ -163,17 +161,17 @@ const Home = ({handleLogoutFunction, username}) => {
               flex: 1,
               overflow: 'hidden',
             }}>
-            <h2>Home</h2>
+            <h1>Home</h1>
             <p>Welcome to the home page! You can visualize your flags here:</p>
             <BarChartComponent label="Your personal exploits:" data={personalExploitsdata} options={optionsCenter}/>
             <div style={{
                 display: 'flex',
-                flexDirection: 'row', /* Display children horizontally */
-                width: '100%', /* Occupy all horizontal space */
+                flexDirection: 'row', 
+                width: '100%', 
               }}>
             {personalExploitsdata.labels.map((exploit) => 
               (
-                <ScriptRunnerControlButton script={exploit} initialState={stoppedExploits.indexOf(exploit)<0?"started":"stopped"} style={{flex:1}}></ScriptRunnerControlButton>
+                <ScriptRunnerControlButton script={exploit} initialState={stoppedExploits.indexOf(exploit)<0?"started":"stopped"} style={{flex:1}} token={token}></ScriptRunnerControlButton>
               )
               )}
             </div>
@@ -198,7 +196,7 @@ const Home = ({handleLogoutFunction, username}) => {
       <div>
         <MenuComponent setStatus={setStatus} setLoginFunction={handleLogoutFunction}/>
         <div>
-          <h2>Explore</h2>
+          <h1>Explore</h1>
           <p>Welcome to the explore page! You can visualize all the flags that have been submitted by your team.</p>
           <FlagTableComponent data={flagsData}></FlagTableComponent>
         </div>
@@ -212,7 +210,7 @@ const Home = ({handleLogoutFunction, username}) => {
       <div>
         <MenuComponent setStatus={setStatus} setLoginFunction={handleLogoutFunction}/>
         <div>
-          <h2>Submit</h2>
+          <h1>Submit</h1>
           <p>Welcome to the submit page! You can insert here some flags you have stolen by hand:</p>
           <FlagSubmissionComponent user={username}></FlagSubmissionComponent>
         </div>

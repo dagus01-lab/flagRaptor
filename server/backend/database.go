@@ -1,12 +1,21 @@
 package main
 
 import (
+	"database/sql"
+	"flagRaptor/common"
 	"log"
-	"myflagsubmitter/common"
 	"strings"
 	"sync"
 	"time"
 )
+
+func initDatabase(databaseFile string) *sql.DB {
+	db, err := sql.Open("sqlite3", databaseFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return db
+}
 
 func createTables() error {
 	err := createFlagsTable()

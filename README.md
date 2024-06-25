@@ -1,4 +1,20 @@
 # flagSubmitter
+```
+	________ ___       ________  ________                           
+	|\  _____\\  \     |\   __  \|\   ____\                          
+	\ \  \__/\ \  \    \ \  \|\  \ \  \___|                          
+	 \ \   __\\ \  \    \ \   __  \ \  \  ___                        
+	  \ \  \_| \ \  \____\ \  \ \  \ \  \|\  \                       
+	   \ \__\   \ \_______\ \__\ \__\ \_______\                      
+	 ________  __________________|____________________  ________     
+	|\   __  \|\   __  \|\   __  \|\___   ___\\   __  \|\   __  \    
+	\ \  \|\  \ \  \|\  \ \  \|\  \|___ \  \_\ \  \|\  \ \  \|\  \   
+	 \ \   _  _\ \   __  \ \   ____\   \ \  \ \ \  \\\  \ \   _  _\  
+	  \ \  \\  \\ \  \ \  \ \  \___|    \ \  \ \ \  \\\  \ \  \\  \| 
+	   \ \__\\ _\\ \__\ \__\ \__\        \ \__\ \ \_______\ \__\\ _\ 
+	    \|__|\|__|\|__|\|__|\|__|         \|__|  \|_______|\|__|\|__|
+
+```
 Flag submission system for Attack/Defense CTFs.
 
 * [Server](#server)
@@ -73,7 +89,7 @@ cd backend
 go build
 ./backend -f CONF_FILE
 ```
-The web interface can be accessed by default on port 5000. To log in, use any username and the password you set.
+The web interface can be accessed by default on port 5050. To log in, use any username and the password you set.
 
 In case of wrong credentials users will be notified and asked to enter the correct username and password
 
@@ -82,7 +98,7 @@ In case of wrong credentials users will be notified and asked to enter the corre
 ```
 cd client
 go build
-./client -s SERVER_URL -u USERNAME -t TOKEN -d ./exploits_dir/ -n THREADS
+./client -s SERVER_URL -u USERNAME -t TOKEN -d exploits_dir/
 ```
 The client is a go program that runs all the programs in the directory specified by the user.
 Firstly the client fetches the configuration from the server. Then it reads the standard output of every

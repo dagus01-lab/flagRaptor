@@ -8,28 +8,7 @@ const Login = ({ handleLoginFunction }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    fetch('/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      //credentials: 'include',
-      body: "username="+username+"&password="+password,
-    })
-      .then((response) => {
-        if (response.ok) {
-          // If login is successful, call the onLogin callback to set the loggedIn state in the parent component
-          handleLoginFunction(username);
-        } else {
-          // Handle login failure here, such as displaying an error message
-          alert('Invalid credentials');
-        }
-      })
-      .catch((error) => {
-        // Handle any network or server-related errors here
-        alert("Error occurred during log in")
-        console.error('Error occurred while logging in:', error);
-      });
+    handleLoginFunction(username, password);
   };
 
   return (

@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
 	"gopkg.in/yaml.v3"
 )
@@ -19,7 +17,7 @@ type User struct {
 }
 type ServerRawConf struct {
 	SessionLifetime int    `yaml:"sessionLifetime,omitempty"`
-	DataBase        string `yaml:"database,omitempty"`
+	DataBase        string `yaml:"dataBase,omitempty"`
 	ClientPort      int    `yaml:"clientPort,omitempty"`
 	APIToken        string `yaml:"apiToken,omitempty"`
 }
@@ -110,7 +108,7 @@ type ScriptRunner struct {
 }
 
 func NewConfig(fileName string) (Config, error) {
-	configFile, err := ioutil.ReadFile(fileName)
+	configFile, err := os.ReadFile(fileName)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not read the config file %s: %w", fileName, err)
 	}
@@ -126,7 +124,7 @@ func NewConfig(fileName string) (Config, error) {
 	if rawConfig.ServerConf.SessionLifetime != 0 {
 		sessionLifetime = rawConfig.ServerConf.SessionLifetime
 	}
-	DATABASE := "instance/flagWarehouse.sqlite"
+	DATABASE := "instances/flagRaptor.sqlite"
 	if rawConfig.ServerConf.DataBase != "" {
 		DATABASE = rawConfig.ServerConf.DataBase
 	}
@@ -291,60 +289,4 @@ func NewConfig(fileName string) (Config, error) {
 	}
 
 	return cfg, err
-}
-
-func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r) {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
-		next.ServeHTTP(w, r)
-	}
-}
-
-func isAuthenticated(r *http.Request) bool {
-	session, err := store.Get(r, cfg.ServerConf.SessionName)
-	if err != nil {
-		return false
-	}
-
-	userName, ok := session.Values["authenticatedUserName"].(string)
-	return ok && userName != ""
-}
-
-func getAuthenticatedUsername(r *http.Request) (string, bool) {
-	session, _ := store.Get(r, cfg.ServerConf.SessionName)
-	if isAuthenticated(r) {
-		userID, ok := session.Values["authenticatedUserName"].(string)
-		return userID, ok
-	} else {
-		return "", false
-	}
-}
-
-func setAuthenticatedUsername(r *http.Request, w http.ResponseWriter, username string) {
-	session, err := store.Get(r, cfg.ServerConf.SessionName)
-	if err != nil {
-		http.Error(w, "Failed to get session", http.StatusInternalServerError)
-		return
-	}
-	session.Options.MaxAge = cfg.ServerConf.SessionLifetime
-	session.Values["authenticatedUserName"] = username
-	session.Save(r, w)
-}
-
-func clearAuthenticatedUsername(r *http.Request, w http.ResponseWriter) {
-	session, _ := store.Get(r, cfg.ServerConf.SessionName)
-	session.Options.MaxAge = -1
-	session.Save(r, w)
-}
-
-func initSessionManager() {
-	store.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   cfg.ServerConf.SessionLifetime,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	}
 }

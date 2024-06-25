@@ -1,4 +1,4 @@
-module myflagsubmitter
+module flagRaptor
 
 go 1.20
 

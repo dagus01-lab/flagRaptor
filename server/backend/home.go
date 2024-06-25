@@ -1,8 +1,8 @@
 package main
 
 import (
+	"flagRaptor/common"
 	"log"
-	"myflagsubmitter/common"
 	"sync"
 
 	"github.com/gorilla/websocket"

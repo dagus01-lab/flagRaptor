@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"flagRaptor/common"
 	"log"
-	"myflagsubmitter/common"
 	"net/http"
 	"os"
 	"os/exec"
@@ -190,7 +190,6 @@ func main() {
 	user := flag.String("u", "", "user")
 	token := flag.String("t", "", "token")
 	exploit_dir := flag.String("d", "exploits", "exploit directory")
-	num_threads := flag.Int("n", 128, "maximum number of threads")
 	//parse the command line flags
 	flag.Parse()
 	//check if the required flags are provided
@@ -240,20 +239,21 @@ func main() {
 			return err
 		}
 		if !info.IsDir() && isExecutable(info) {
-			if has, err := hasShebang(path); err == nil && has {
-				executableScripts[path] = true
-				scripts = append(scripts, path)
-			}
+			//if has, err := hasShebang(path); err == nil && has {
+			executableScripts[path] = true
+			scripts = append(scripts, path)
+			//}
 		} else {
 			log.Println("Script", path, "is not executable")
 		}
 		return nil
 	})
+	if err != nil {
+		log.Println("Error executing files: ", err)
+	}
 
 	for {
-
 		//run every script for each team
-		i := 0
 		terminate := false
 		var wg sync.WaitGroup
 		for _, script := range scripts {
@@ -261,18 +261,13 @@ func main() {
 				log.Println("Started running exploit ", script, "on team", team)
 				wg.Add(1)
 				go run_exploit(&wg, script, team, server_conf.RoundDuration, *server_url, *token, server_conf.FlagFormat, *user)
-
-				i++
-				if i > *num_threads {
-					terminate = true
-					break
-				}
 			}
 			if terminate {
 				break
 			}
 		}
 		wg.Wait()
+
 		time.Sleep(1 * time.Second)
 
 		//reload exploits from the exploit directory

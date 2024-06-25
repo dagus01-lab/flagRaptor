@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import { Button } from '@mui/material';
 
-const ScriptRunnerControlButton = ({script, initialState, style})=>{
+const ScriptRunnerControlButton = ({script, initialState, style, token})=>{
 
     const [status, setStatus] = useState(initialState)
 
@@ -11,7 +11,7 @@ const ScriptRunnerControlButton = ({script, initialState, style})=>{
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/x-www-form-urlencoded',
-                      'X-Auth-Token': 'token', // Add the custom header "X-Auth-Token" with your token
+                      'X-Auth-Token': token,
                     },
                     body: "exploit="+event.target.id,
                   })
@@ -39,7 +39,7 @@ const ScriptRunnerControlButton = ({script, initialState, style})=>{
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/x-www-form-urlencoded',
-                  'X-Auth-Token': 'token', // Add the custom header "X-Auth-Token" with your token
+                  'X-Auth-Token': token, // Add the custom header "X-Auth-Token" with your token
                 },
                 body: "exploit="+event.target.id,
               })
@@ -64,7 +64,7 @@ const ScriptRunnerControlButton = ({script, initialState, style})=>{
         }
     }
     return(
-        <Button id={script} onClick={onclickFunction} style={style} color={status==="stopped"?"error":"success"}>{status}</Button>
+        <Button id={script} onClick={onclickFunction} style={style} color={status==="stopped"?"error":"success"} token={token}>{status}</Button>
     )
 }
 export default ScriptRunnerControlButton;

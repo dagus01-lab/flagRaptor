@@ -6,3 +6,4 @@ client/client
 server/backend/backend
 tests/flag_verifier
 .vscode/
+*sqlite

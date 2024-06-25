@@ -1,8 +1,8 @@
 package main
 
 import (
+	"flagRaptor/common"
 	"log"
-	"myflagsubmitter/common"
 	"sync"
 	"time"
 )
@@ -115,9 +115,9 @@ func submission_loop(config *Config) {
 				go updateNewFlags(updated_flags)
 			}
 
-			duration := time.Now().Sub(s_time)
+			duration := time.Since(s_time)
+
 			if duration < cfg.SubmissionConf.SubInterval {
-				//log.Println("Sleeping for ", time.Duration(SUB_INTERVAL)*time.Second-duration)
 				time.Sleep(cfg.SubmissionConf.SubInterval - duration)
 			}
 		}

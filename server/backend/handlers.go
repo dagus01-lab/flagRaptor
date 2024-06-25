@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flagRaptor/common"
 	"log"
-	"myflagsubmitter/common"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,65 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 )
-
-func verifyAuthentication(r *http.Request) (string, bool, bool) {
-	authToken := r.Header.Get("X-Auth-Token")
-
-	if authToken == cfg.ServerConf.APIToken {
-		//log.Println("Authorization successful!")
-		user, ok := getAuthenticatedUsername(r)
-		if !ok {
-			return "", true, false
-		} else {
-			return user, true, true
-		}
-	} else {
-		//log.Println("Authorization not successful!")
-		user, ok := getAuthenticatedUsername(r)
-		if !ok {
-			return "", false, false
-		} else {
-			return user, false, true
-		}
-	}
-}
-
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-
-	if r.Method == http.MethodPost {
-		username := r.FormValue("username")
-		password := r.FormValue("password")
-		if cfg.AuthConf.AuthEnable {
-			rows, err := db.Query("SELECT * FROM users WHERE username=", username, " AND PASSWORD=", password)
-			if err != nil {
-				http.Error(w, "Internal error", http.StatusInternalServerError)
-				return
-			}
-			if !rows.Next() {
-				http.Error(w, "Invalid password", http.StatusUnauthorized)
-				return
-			}
-
-		} else {
-			if cfg.AuthConf.WebPassword != password {
-				http.Error(w, "Invalid password", http.StatusUnauthorized)
-				return
-			}
-		}
-
-		// Set the session cookie upon successful login
-		setAuthenticatedUsername(r, w, username)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
-		return
-	}
-}
-
-func logoutHandler(w http.ResponseWriter, r *http.Request) {
-	clearAuthenticatedUsername(r, w)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Logout successful"})
-}
 
 func getConfigHandler(w http.ResponseWriter, r *http.Request) {
 	_, okToken, _ := verifyAuthentication(r)
@@ -420,16 +361,15 @@ func getStoppedExploitsHandler(w http.ResponseWriter, r *http.Request) {
 						result = append(result, exploit)
 					}
 				}
-				//return the result in json format
-				w.Header().Set("Content-Type", "application/json")
-				err := json.NewEncoder(w).Encode(result)
-				if err != nil {
-					log.Println("Error converting to json: ", err)
-				}
-				return
+				break
 			}
 		}
-		http.Error(w, "You are not running any script", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(result)
+		if err != nil {
+			log.Println("Error converting to json: ", err)
+		}
+		return
 	} else {
 		http.Error(w, "You have to login first to use this feature", http.StatusUnauthorized)
 		return

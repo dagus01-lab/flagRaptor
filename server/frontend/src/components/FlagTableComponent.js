@@ -59,7 +59,7 @@ const FlagTableComponent = ({ data }) => {
   return (
     
     <div>
-      <h1>Flag Table</h1>
+      <h2>Flag Table</h2>
       <Button onClick={openModal}>Filter Flags</Button>
 
       <DataGrid
@@ -67,10 +67,10 @@ const FlagTableComponent = ({ data }) => {
         columns={columns}
         initialState={{
           pagination: {
-            paginationModel: { page: 0, pageSize: 50 },
+            paginationModel: { page: 0, pageSize: 10 },
           },
         }}
-        pageSizeOptions={[50, 100]}
+        pageSizeOptions={[10, 20, 30, 40]}
       />
 
       <Modal isOpen={isModalOpen} onRequestClose={closeModal} >

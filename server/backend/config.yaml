@@ -1,10 +1,10 @@
 serverConf:
   sessionLifetime : 3600
-  database : "instance/flagSubmitter.sqlite"
+  dataBase : "instances/flagRaptor.sqlite"
   clientPort : 5050
   apiToken : "token"
 gameConf:
-  numberTeams : 10
+  numberTeams : 20
   teamFormat : "10.60.x.1"
   wildcard : "x"
   teamIP : "10.60.1.1"
@@ -28,4 +28,8 @@ submissionConf:
 authConf:
   webPassword : "password"
   authEnable: false
-  users: [{"admin", "password"},{"hack3r", "mysecretpassword"}]
+  users: 
+    - username: "admin"
+      password: "password"
+    - username: "hack3r"
+      password: "mysecretpassword"
